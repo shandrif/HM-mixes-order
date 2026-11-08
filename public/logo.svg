@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="HM">
+  <!-- Placeholder mark: replace public/logo.svg with the official HM logo. -->
+  <rect width="64" height="64" rx="14" fill="#1f1a17"/>
+  <text x="32" y="41" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="26" font-weight="700" fill="#d4b38b" letter-spacing="1">HM</text>
+</svg>

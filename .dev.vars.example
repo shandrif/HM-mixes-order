@@ -1,0 +1,4 @@
+# Copy to .dev.vars for local development (wrangler dev). In Cloudflare, set these
+# under Worker → Settings → Variables and Secrets (type: Secret).
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=change-me-please
