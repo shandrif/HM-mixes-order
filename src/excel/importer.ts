@@ -8,6 +8,7 @@ export interface ParsedItem {
   name: string;
   code: string | null;
   step: number;
+  buttons_only: number;
   kind: "input" | "derived";
   factor: number | null;
   source_key: string | null;
@@ -247,6 +248,7 @@ export function parseWorkbook(wb: ExcelJS.Workbook, opts: { year?: number; prefe
         name: c.name,
         code: derived.has(c.key) ? null : c.row3 != null ? String(c.row3) : prev?.code ?? null,
         step: 1,
+        buttons_only: 0,
         kind: isDerived ? "derived" : "input",
         factor: isDerived ? (typeof c.row3 === "number" ? c.row3 : Number(c.row3) || 0) : null,
         source_key: isDerived ? derived.get(c.key) ?? null : null,
@@ -339,7 +341,8 @@ export function parseWorkbook(wb: ExcelJS.Workbook, opts: { year?: number; prefe
     if (d) d.anomalies.push({ storeName: null, itemKey: null, rule: "hist_sheet_date", severity: "warning", message: `Sheet "${sk.name}" has the same date (${sk.day}) as "${d.sheet_name}" and was not imported. You can choose which one to keep on the import screen.` });
   }
   for (const [k, frac] of itemFractions) if (frac && items.get(k)?.kind === "input") items.get(k)!.step = 0.5;
-  for (const [k, step] of stepHint) if (items.get(k)?.kind === "input") items.get(k)!.step = step;
+  for (const [k, step] of stepHint)
+    if (items.get(k)?.kind === "input") Object.assign(items.get(k)!, { step, buttons_only: 1 }); // gram toppings: + / − only
   const latestItems = new Set(days.at(-1)?.itemKeys ?? []);
   for (const it of items.values()) it.active = latestItems.has(it.key) ? 1 : 0;
   // Order: items in the order of the latest sheet, then retired ones.

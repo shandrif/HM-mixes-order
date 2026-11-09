@@ -2,14 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import type { Item } from "../../../shared/types";
 import { api } from "../../api";
 
-type Draft = { name: string; name_ar: string; code: string; step: string; kind: "input" | "derived"; source_item_id: string; factor: string };
-const empty: Draft = { name: "", name_ar: "", code: "", step: "1", kind: "input", source_item_id: "", factor: "" };
+type Draft = { name: string; name_ar: string; code: string; step: string; kind: "input" | "derived"; source_item_id: string; factor: string; buttons_only: boolean };
+const empty: Draft = { name: "", name_ar: "", code: "", step: "1", kind: "input", source_item_id: "", factor: "", buttons_only: false };
 
 const toBody = (d: Draft) => ({
   name: d.name,
   name_ar: d.name_ar || null,
   code: d.code || null,
   step: Number(d.step) || 1,
+  buttons_only: d.buttons_only ? 1 : 0,
   kind: d.kind,
   source_item_id: d.kind === "derived" ? Number(d.source_item_id) || null : null,
   factor: d.kind === "derived" ? Number(d.factor) : null,
@@ -124,6 +125,7 @@ const fromItem = (it: Item): Draft => ({
   kind: it.kind,
   source_item_id: it.source_item_id ? String(it.source_item_id) : "",
   factor: it.factor != null ? String(it.factor) : "",
+  buttons_only: !!it.buttons_only,
 });
 
 function ItemRow({ it, idx, last, inputs, onSave, onMove }: { it: Item; idx: number; last: boolean; inputs: Item[]; onSave: (id: number, d: Draft, extra?: Partial<Item>) => void; onMove: (i: number, d: -1 | 1) => void }) {
@@ -178,6 +180,9 @@ function ItemFields({ d, set, inputs }: { d: Draft; set: (d: Draft) => void; inp
           <label className="inline" title="Quantities must be a multiple of this; the + / − buttons move by it (e.g. 0.5 for tubs, 480 for grams).">
             step
             <input className="input short" inputMode="decimal" value={d.step} onChange={(e) => set({ ...d, step: e.target.value })} />
+          </label>
+          <label className="check small" title="Stores can only tap + / −; they cannot type a number.">
+            <input type="checkbox" checked={d.buttons_only} onChange={(e) => set({ ...d, buttons_only: e.target.checked })} /> + / − only
           </label>
         </>
       ) : (

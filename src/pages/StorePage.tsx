@@ -20,6 +20,7 @@ interface OrderItem {
   kind: "input" | "derived";
   source_item_id: number | null;
   factor: number | null;
+  buttons_only?: number;
 }
 
 interface OrderData {
@@ -191,12 +192,15 @@ function useCountdown(targetIso: string, serverNowIso: string) {
   return Math.max(0, Date.parse(targetIso) - now);
 }
 
+// "+ / − only" items can't be typed, so they start at 0 instead of empty.
+const blank = (i: { buttons_only?: number }) => (i.buttons_only ? "0" : "");
+
 function OrderForm({ data, lang, onReload, onSwitch }: { data: OrderData; lang: "en" | "ar"; onReload: () => void; onSwitch: () => void }) {
   const t = strings(lang);
   const inputs = data.items.filter((i) => i.kind === "input");
   const derived = data.items.filter((i) => i.kind === "derived");
   const [vals, setVals] = useState<Record<number, string>>(() =>
-    Object.fromEntries(inputs.map((i) => [i.id, data.lines[i.id] != null ? String(data.lines[i.id]) : ""])),
+    Object.fromEntries(inputs.map((i) => [i.id, data.lines[i.id] != null ? String(data.lines[i.id]) : blank(i)])),
   );
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
@@ -298,10 +302,10 @@ function OrderForm({ data, lang, onReload, onSwitch }: { data: OrderData; lang: 
       ) : (
         <>
           <div className="toolbar">
-            <button className="btn ghost" onClick={() => setVals(Object.fromEntries(inputs.map((i) => [i.id, data.last[i.id] != null ? String(data.last[i.id]) : ""])))} disabled={!Object.keys(data.last).length}>
+            <button className="btn ghost" onClick={() => setVals(Object.fromEntries(inputs.map((i) => [i.id, data.last[i.id] != null ? String(data.last[i.id]) : blank(i)])))} disabled={!Object.keys(data.last).length}>
               ↺ {t.copyLast}
             </button>
-            <button className="btn ghost" onClick={() => setVals(Object.fromEntries(inputs.map((i) => [i.id, ""])))}>
+            <button className="btn ghost" onClick={() => setVals(Object.fromEntries(inputs.map((i) => [i.id, blank(i)])))}>
               {t.clear}
             </button>
           </div>
@@ -327,6 +331,9 @@ function OrderForm({ data, lang, onReload, onSwitch }: { data: OrderData; lang: 
                     </button>
                     <input
                       inputMode="decimal"
+                      readOnly={!!it.buttons_only}
+                      tabIndex={it.buttons_only ? -1 : undefined}
+                      className={it.buttons_only ? "buttons-only" : undefined}
                       aria-label={it.name}
                       value={vals[it.id] ?? ""}
                       placeholder="–"

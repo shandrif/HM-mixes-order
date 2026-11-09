@@ -128,6 +128,13 @@ export function ensureSchema(db: D1Database): Promise<void> {
           db.prepare("UPDATE anomalies SET status = 'resolved', resolved_by = 'system', resolved_at = CURRENT_TIMESTAMP WHERE status = 'open' AND rule IN ('derived_override', 'hist_hardcoded')"),
         ]);
       }
+      // One-time: "+ / − only" items (no typing). On by default for the gram toppings.
+      const migr4 = await db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('migr_buttons_only', '1')").run();
+      if (migr4.meta.changes) {
+        const cols = (await db.prepare("PRAGMA table_info(items)").all<{ name: string }>()).results;
+        if (!cols.some((c) => c.name === "buttons_only")) await db.prepare("ALTER TABLE items ADD COLUMN buttons_only INTEGER NOT NULL DEFAULT 0").run();
+        await db.prepare("UPDATE items SET buttons_only = 1 WHERE name LIKE 'Cookie Topping%' OR name LIKE 'Pecan Topping%'").run();
+      }
     })().catch((e) => {
       ready = null;
       throw e;

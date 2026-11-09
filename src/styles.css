@@ -291,3 +291,4 @@ table.sheet tfoot .sticky-col { z-index: 3; background: var(--gold-soft); }
   .stepper input { width: 52px; }
   .submit-bar .btn.big { width: 100%; }
 }
+.stepper input.buttons-only { pointer-events: none; user-select: none; caret-color: transparent; width: 84px; }
