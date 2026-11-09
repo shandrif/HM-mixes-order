@@ -16,8 +16,7 @@ Runs entirely on Cloudflare’s free plan: Workers (app + API), D1 (database) an
 1. Log in to <https://dash.cloudflare.com>.
 2. Left menu → **Storage & databases → D1 SQL database → Create database**.
 3. Name it **`hm-mixes-db`**, then click **Create**.
-4. Copy the **Database ID** shown on the database page.
-5. In this GitHub repo, open `wrangler.jsonc`, click ✏️ (edit), replace `00000000-0000-0000-0000-000000000000` with your Database ID, and commit.
+4. Put its **Database ID** in `wrangler.jsonc` (`database_id`). This is already done for the current database `b3e922e4-…`. Only change it if you create a new database.
 
 ### 2. Connect the GitHub repo to Cloudflare
 1. Left menu → **Workers & Pages → Create → Import a repository** (or “Continue with GitHub”).
