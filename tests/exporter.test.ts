@@ -16,7 +16,7 @@ const layout: DayDetail["layout"] = {
 };
 
 const day = (d: string, lines: DayDetail["lines"]): DayDetail => ({
-  day: d, status: "locked", sheet_name: d === "2026-11-05" ? "Nov- 05" : "Nov- 04", cutoff_at: "", layout, lines, submissions: [], anomalies: [],
+  day: d, status: "locked", sheet_name: d === "2026-11-05" ? "Nov- 05" : "Nov- 04", cutoff_at: "", layout, lines, submissions: [], anomalies: [], sent: null,
 });
 
 describe("Excel export", () => {

@@ -21,7 +21,7 @@ import {
   type Decision,
   type Finding,
 } from "./db";
-import { buildDailyEmail, publicEmailSettings, sendBrevo, sendDueDailyEmail } from "./email";
+import { buildOrderEmail, EMAIL_RE, emailConfigured, publicEmailSettings, sendBrevo } from "./email";
 import { anomaliesOf, checkDay, cutoffAt, dayDetail, decide, openDay, rollover, type Ctx } from "./logic";
 
 export interface Env {
@@ -282,7 +282,7 @@ app.get("/admin/overview", async (c) => {
   const [cur, agg, last] = await db.batch([
     db.prepare("SELECT n_entered FROM sheets WHERE day = ?").bind(od),
     db.prepare("SELECT COUNT(*) AS n, MIN(day) AS first, MAX(day) AS last, SUM(n_crit) AS critical, SUM(n_warn) AS warning, SUM(n_info) AS info, SUM(n_entered + n_carried) AS orders FROM sheets"),
-    db.prepare("SELECT day, n_entered AS entered, n_carried AS carried, n_crit AS critical, n_warn AS warning FROM sheets WHERE status = 'locked' ORDER BY day DESC LIMIT 1"),
+    db.prepare("SELECT day, n_entered AS entered, n_carried AS carried, n_crit AS critical, n_warn AS warning, emailed_at AS sent_at FROM sheets WHERE status = 'locked' ORDER BY day DESC LIMIT 1"),
   ]);
   const a = agg.results[0] as { n: number; first: string | null; last: string | null; critical: number | null; warning: number | null; info: number | null; orders: number | null };
   const hasHistory = a.n > 1 || (a.orders ?? 0) > 0;
@@ -569,53 +569,83 @@ app.delete("/admin/admins/:email", async (c) => {
   return c.json({ ok: true });
 });
 
-// Daily order email (Brevo)
+// Order email (Brevo): settings, test, and send a reviewed day.
 app.get("/admin/email", (c) => c.json(publicEmailSettings(c.var.ctx.cfg)));
 
-app.put("/admin/email", async (c) => {
-  const b = await body<{ enabled?: boolean; api_key?: string; sender_email?: string; sender_name?: string; recipients?: string[] | string }>(c);
-  const list = (Array.isArray(b.recipients) ? b.recipients : String(b.recipients ?? "").split(/[\s,;]+/)).map((x) => x.trim().toLowerCase()).filter(Boolean);
-  const bad = list.filter((x) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
+const parseEmails = (v: string[] | string | undefined) => {
+  const list = (Array.isArray(v) ? v : String(v ?? "").split(/[\s,;]+/)).map((x) => x.trim().toLowerCase()).filter(Boolean);
+  const bad = list.filter((x) => !EMAIL_RE.test(x));
   if (bad.length) fail(400, `Not a valid email: ${bad.join(", ")}`);
   if (list.length > 50) fail(400, "At most 50 recipients");
+  return [...new Set(list)];
+};
+
+app.put("/admin/email", async (c) => {
+  const b = await body<{ api_key?: string; sender_email?: string; sender_name?: string; recipients?: string[] | string }>(c);
+  const recipients = parseEmails(b.recipients);
   const sender = String(b.sender_email ?? "").trim();
-  if (sender && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(sender)) fail(400, "Sender email is not valid");
-  const ctx = c.var.ctx;
-  const { cfg } = await updateCfg(ctx.db, (k) => {
-    const prev = k.email;
-    const enabled = !!b.enabled;
+  if (sender && !EMAIL_RE.test(sender)) fail(400, "Sender email is not valid");
+  const { cfg } = await updateCfg(c.var.ctx.db, (k) => {
     k.email = {
-      enabled,
-      api_key: b.api_key?.trim() ? b.api_key.trim() : prev?.api_key ?? "",
+      api_key: b.api_key?.trim() ? b.api_key.trim() : k.email?.api_key ?? "",
       sender_email: sender,
-      sender_name: String(b.sender_name ?? "Mixes Order").trim().slice(0, 60) || "Mixes Order",
-      recipients: [...new Set(list)],
+      sender_name: String(b.sender_name ?? "HM Mixes Order").trim().slice(0, 60) || "HM Mixes Order",
+      recipients,
       site_url: new URL(c.req.url).origin,
-      // Start with the day that is open now: imported history is never emailed.
-      since: enabled && !prev?.enabled ? ctx.open_day ?? openDay(k.settings) : prev?.since ?? ctx.open_day ?? openDay(k.settings),
     };
-    if (enabled && (!k.email.api_key || !k.email.sender_email || !k.email.recipients.length)) fail(400, "To turn on the daily email, fill in the API key, sender email and at least one recipient.");
   });
-  await audit(ctx.db, actor(c), "update_email", { enabled: cfg.email?.enabled, recipients: cfg.email?.recipients.length });
+  await audit(c.var.ctx.db, actor(c), "update_email", { recipients: recipients.length });
   return c.json(publicEmailSettings(cfg));
 });
 
-/** Send the email for the most recent locked day (or the open day) right now. */
+/** Check the Brevo connection with a short email (no attachment). */
 app.post("/admin/email/test", async (c) => {
-  const ctx = c.var.ctx;
-  const e = ctx.cfg.email;
-  if (!e?.api_key || !e.sender_email || !e.recipients.length) fail(400, "Save the API key, sender email and recipients first.");
-  const last = await ctx.db.prepare("SELECT day FROM sheets WHERE status = 'locked' ORDER BY day DESC LIMIT 1").first<{ day: string }>();
-  const day = last?.day ?? openDay(ctx.cfg.settings);
-  const mail = await buildDailyEmail(ctx, day);
-  if (!mail) fail(404, "No order sheet to send yet.");
+  const e = c.var.ctx.cfg.email;
+  if (!emailConfigured(e) || !e.recipients.length) fail(400, "Save the API key, sender email and recipients first.");
   try {
-    await sendBrevo(e!, { ...mail!, subject: "[Test] " + mail!.subject });
+    await sendBrevo(e!, {
+      subject: "HM Mixes Order — test email",
+      html: `<p style="font-family:Arial,sans-serif">Brevo is connected. Reviewed orders will be sent from <b>${e!.sender_email}</b> to these recipients.</p>`,
+      to: e!.recipients,
+    });
   } catch (err) {
     fail(502, (err as Error).message);
   }
-  await audit(ctx.db, actor(c), "email_test", { day, recipients: e!.recipients.length });
-  return c.json({ ok: true, day, recipients: e!.recipients });
+  return c.json({ ok: true, recipients: e!.recipients });
+});
+
+/**
+ * Send a reviewed day to the factory & stores. The browser builds the branded
+ * .xlsx and posts it here; the Worker only forwards it (2 rows read, 1 written).
+ */
+app.post("/admin/days/:day/send", async (c) => {
+  const ctx = c.var.ctx;
+  const day = c.req.param("day");
+  const e = ctx.cfg.email;
+  if (!emailConfigured(e)) fail(400, "Set up the Brevo email first (Settings → Order email).");
+  const b = await body<{ recipients?: string[] | string; note?: string; filename?: string; file_base64?: string; allow_warnings?: boolean }>(c);
+  const to = parseEmails(b.recipients);
+  if (!to.length) fail(400, "Add at least one recipient.");
+  const row = await ctx.db.prepare("SELECT status, n_crit, n_warn FROM sheets WHERE day = ?").bind(day).first<{ status: string; n_crit: number; n_warn: number }>();
+  if (!row) fail(404, "Day not found");
+  if (row!.status !== "locked") fail(409, "This day is still open for stores. Send it after the cutoff.");
+  if (row!.n_crit > 0) fail(409, `Fix or ignore the ${row!.n_crit} critical issue(s) first.`);
+  const filename = String(b.filename ?? "");
+  if (!/^[\w.\- ]{1,120}\.xlsx$/.test(filename)) fail(400, "Bad file name");
+  const file = String(b.file_base64 ?? "");
+  if (!file || file.length > 8_000_000 || !/^[A-Za-z0-9+/=]+$/.test(file)) fail(400, "The Excel file is missing or too large");
+  const who = c.var.session!.sub;
+  const note = String(b.note ?? "").slice(0, 2000);
+  const mail = await buildOrderEmail(ctx, day, note, who);
+  try {
+    await sendBrevo(e!, { ...mail!, to, attachments: [{ name: filename, content: file }] });
+  } catch (err) {
+    fail(502, (err as Error).message);
+  }
+  const at = nowIso();
+  await ctx.db.prepare("UPDATE sheets SET emailed_at = ?, emailed_by = ? WHERE day = ?").bind(at, who, day).run();
+  await audit(ctx.db, actor(c), "send_order", { day, to, note: note.slice(0, 200) });
+  return c.json({ ok: true, sent: { at, by: who }, to });
 });
 
 app.post("/admin/rollover", async (c) => {
@@ -710,12 +740,7 @@ export default {
         const ctx: Ctx = { db: env.DB, cfg, open_day };
         const r = await rollover(ctx);
         if (r.locked.length) console.log("Locked", r.locked, "open", r.open);
-        try {
-          const sent = await sendDueDailyEmail(ctx);
-          if (sent) console.log("Daily email sent for", sent);
-        } catch (e) {
-          console.error("Daily email failed (will retry next run):", e);
-        }
+
       })(),
     );
   },

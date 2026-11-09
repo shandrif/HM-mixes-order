@@ -64,15 +64,18 @@ Fixing a cell re-runs the checks for that day. Findings can also be marked fixed
 
 ---
 
-## Daily order email (Brevo)
-After each cutoff the locked order is emailed automatically. The email has totals per item, every branch, who was copied or missing, any likely typos, and the sheet attached as a spreadsheet (CSV, opens in Excel).
+## Sending the reviewed order (Brevo email)
+Every day at 18:30 the sheet locks and comes to the admin for review. Nothing is emailed automatically.
 
-1. In Brevo, create an API key: your name (top right) → **SMTP & API** → **API Keys** → **Generate a new API key**.
-2. In Brevo, make sure the sender address is verified: **Senders, Domains & Dedicated IPs** → **Senders**.
-3. In the app, go to **Admin → Settings → Daily order email**. Paste the key, enter the sender email and the recipients (one per line), then click **Save & turn on**.
-4. Click **Send test email now** to check it arrives.
+1. **One-time setup:** go to **Admin → Settings → Order email (Brevo)**. Paste the Brevo API key (Brevo → your name → **SMTP & API** → **API Keys**), enter a sender address that is verified in Brevo, and the default recipients (factory, stores, managers). Click **Save**, then **Send test email**.
+2. **Each day:** open the locked day (Dashboard → **Review & send**). Fix or ignore the issues; sending is blocked while critical ones are open. Click **Preview Excel** to see the file, then **Send to factory & stores**. You can change the recipients for this send and add a note.
+3. The day shows **"Sent … by …"**. You can send again after making changes.
 
-The cron job sends the email within 15 minutes of the cutoff, once per day; it never sends twice. If Brevo fails, the next run retries. Days imported from the workbook are never emailed. Each send costs about 3 database rows read and 1 written.
+**The email** is short and branded, with the totals per item, and has the Excel file attached (`HM_Mixes_Order_05_Nov_2026.xlsx`):
+- **Order** sheet: HM header, delivery date, when the order closed and who reviewed and sent it, every branch × every item with zebra rows, zeros shown as "–", a status column (sent time, copied from previous day, or no order), and a gold totals row. It is frozen and print-ready: A4 landscape, fits the page width, header repeats on each page, page numbers.
+- **Factory summary** sheet: each item with its code, the total to produce, how many branches ordered it, the previous order's total, and the change.
+
+The file is built in the admin's browser; the server only forwards it to Brevo. A send costs about 2 database rows.
 
 ## Free-plan limits (why they cannot be reached)
 Everything runs on Cloudflare's free plan. The database (D1) allows 5,000,000 rows read and 100,000 rows written per day, so the app stores data to keep every request tiny:
