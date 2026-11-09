@@ -8,6 +8,7 @@ export interface Item {
   name_ar: string | null;
   code: string | null; // SKU shown in row 3 of the sheet (input items)
   step: number; // allowed increment, e.g. 0.5 for Hot Chocolate Topping, 1 otherwise
+  buttons_only: number; // 1 = stores can only use + / −, no typing
   sort: number;
   active: number;
   kind: ItemKind;

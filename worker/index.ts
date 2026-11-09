@@ -135,7 +135,7 @@ app.get("/store/order", async (c) => {
     day: od,
     cutoff_at: cutoffAt(settings, od),
     server_now: nowIso(),
-    items: items.map(({ id, name, name_ar, code, step, kind, source_item_id, factor }) => ({ id, name, name_ar, code, step, kind, source_item_id, factor })),
+    items: items.map(({ id, name, name_ar, code, step, kind, source_item_id, factor, buttons_only }) => ({ id, name, name_ar, code, step, kind, source_item_id, factor, buttons_only })),
     lines: Object.fromEntries((mine.results as { item_id: number; qty: number | null }[]).map((r) => [r.item_id, r.qty])),
     last: Object.fromEntries((last.results as { item_id: number; qty: number | null }[]).map((r) => [r.item_id, r.qty])),
     submission: (sub.results[0] as { source: string; submitted_at: string } | undefined) ?? null,
@@ -452,8 +452,8 @@ app.post("/admin/items", async (c) => {
   validateItem(it);
   const max = await db.prepare("SELECT COALESCE(MAX(sort), 0) + 1 AS n FROM items").first<{ n: number }>();
   const r = await db
-    .prepare("INSERT INTO items (name, name_ar, code, step, sort, active, kind, source_item_id, factor) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?) RETURNING *")
-    .bind(it.name!.trim(), it.name_ar?.trim() || null, it.code?.toString().trim() || null, it.step ?? 1, it.sort ?? max!.n, it.kind ?? "input", it.kind === "derived" ? it.source_item_id : null, it.kind === "derived" ? it.factor : null)
+    .prepare("INSERT INTO items (name, name_ar, code, step, sort, active, kind, source_item_id, factor, buttons_only) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?) RETURNING *")
+    .bind(it.name!.trim(), it.name_ar?.trim() || null, it.code?.toString().trim() || null, it.step ?? 1, it.sort ?? max!.n, it.kind ?? "input", it.kind === "derived" ? it.source_item_id : null, it.kind === "derived" ? it.factor : null, it.buttons_only ? 1 : 0)
     .first();
   await audit(db, actor(c), "add_item", r);
   return c.json(r);
@@ -468,10 +468,10 @@ app.put("/admin/items/:id", async (c) => {
   const r = await db
     .prepare(
       `UPDATE items SET name = COALESCE(?, name), name_ar = ?, code = ?, step = COALESCE(?, step), active = COALESCE(?, active),
-         kind = COALESCE(?, kind), source_item_id = ?, factor = ?
+         kind = COALESCE(?, kind), source_item_id = ?, factor = ?, buttons_only = COALESCE(?, buttons_only)
        WHERE id = ? RETURNING *`,
     )
-    .bind(it.name?.trim() || null, it.name_ar?.trim() || null, it.code?.toString().trim() || null, it.step ?? null, it.active ?? null, it.kind ?? null, it.kind === "derived" ? it.source_item_id : null, it.kind === "derived" ? it.factor : null, id)
+    .bind(it.name?.trim() || null, it.name_ar?.trim() || null, it.code?.toString().trim() || null, it.step ?? null, it.active ?? null, it.kind ?? null, it.kind === "derived" ? it.source_item_id : null, it.kind === "derived" ? it.factor : null, it.buttons_only == null ? null : it.buttons_only ? 1 : 0, id)
     .first();
   if (!r) fail(404, "Item not found");
   await audit(db, actor(c), "update_item", r);
@@ -563,14 +563,14 @@ app.post("/admin/import/begin", async (c) => {
   // Import always starts from a clean slate (stores, items and history come from the workbook).
   await db.batch(["lines", "submissions", "anomalies", "days", "stores", "items"].map((t) => db.prepare(`DELETE FROM ${t}`)));
   // One statement per table (the free plan allows 50 queries per request).
-  const itemRows = req.items.map((it, i) => ({ sort: i + 1, name: it.name, code: it.code ?? null, step: it.step ?? 1, active: it.active ?? 1, kind: it.kind ?? "input", factor: it.factor ?? null }));
+  const itemRows = req.items.map((it, i) => ({ sort: i + 1, name: it.name, code: it.code ?? null, step: it.step ?? 1, active: it.active ?? 1, kind: it.kind ?? "input", factor: it.factor ?? null, buttons_only: it.buttons_only ? 1 : 0 }));
   const storeRows = req.stores.map((s, i) => ({ sort: i + 1, name: s.name, region: s.region ?? null, active: s.active ?? 1 }));
   const [, , itemsR, storesR] = await db.batch([
     db
       .prepare(
-        `INSERT INTO items (name, code, step, sort, active, kind, factor)
+        `INSERT INTO items (name, code, step, sort, active, kind, factor, buttons_only)
          SELECT json_extract(value, '$.name'), json_extract(value, '$.code'), json_extract(value, '$.step'), json_extract(value, '$.sort'),
-                json_extract(value, '$.active'), json_extract(value, '$.kind'), json_extract(value, '$.factor')
+                json_extract(value, '$.active'), json_extract(value, '$.kind'), json_extract(value, '$.factor'), json_extract(value, '$.buttons_only')
          FROM json_each(?1)`,
       )
       .bind(JSON.stringify(itemRows)),
