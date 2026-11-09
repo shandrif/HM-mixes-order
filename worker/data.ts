@@ -150,26 +150,10 @@ export async function checkDay(ctx: Ctx, day: string): Promise<void> {
   const meta = await getLayout(ctx, day);
   if (!meta) return;
   const hist = Math.max(7, Math.min(90, ctx.settings.history_days));
-  const [linesR, subsR, statsR, totalsR, streakR, existingR] = await db.batch([
+  const { cells: statsRows, items: itemAvgRows } = await historyStats(ctx, day, hist);
+  const [linesR, subsR, streakR, existingR] = await db.batch([
     db.prepare("SELECT store_id, item_id, qty FROM lines WHERE day = ?").bind(day),
     db.prepare("SELECT store_id, source FROM submissions WHERE day = ?").bind(day),
-    db
-      .prepare(
-        `SELECT store_id, item_id, COUNT(*) AS n, AVG(qty) AS avg, MAX(qty) AS max, SUM(qty > 0) AS nonzero
-         FROM lines
-         WHERE qty IS NOT NULL AND day IN (SELECT day FROM days WHERE day < ?1 ORDER BY day DESC LIMIT ?2)
-         GROUP BY store_id, item_id`,
-      )
-      .bind(day, hist),
-    db
-      .prepare(
-        `SELECT item_id, AVG(t) AS avg FROM (
-           SELECT day, item_id, SUM(qty) AS t FROM lines
-           WHERE day IN (SELECT day FROM days WHERE day < ?1 ORDER BY day DESC LIMIT 14)
-           GROUP BY day, item_id)
-         GROUP BY item_id`,
-      )
-      .bind(day),
     db
       .prepare(
         `SELECT store_id, COUNT(*) AS n FROM submissions
@@ -203,7 +187,7 @@ export async function checkDay(ctx: Ctx, day: string): Promise<void> {
     if (itemsById.has(r.item_id)) cells.set(`${r.store_id}:${r.item_id}`, r.qty);
   }
   const stats = new Map<string, CellStat>();
-  for (const r of statsR.results as (CellStat & { store_id: number; item_id: number })[]) stats.set(`${r.store_id}:${r.item_id}`, r);
+  for (const r of statsRows) stats.set(`${r.store_id}:${r.item_id}`, r);
 
   const found = runChecks({
     items: meta.layout.items,
@@ -211,7 +195,7 @@ export async function checkDay(ctx: Ctx, day: string): Promise<void> {
     cells,
     submitted: new Map((subsR.results as { store_id: number; source: string }[]).map((r) => [r.store_id, r.source])),
     stats,
-    itemDailyAvg: new Map((totalsR.results as { item_id: number; avg: number }[]).map((r) => [r.item_id, r.avg])),
+    itemDailyAvg: new Map(itemAvgRows.map((r) => [r.item_id, r.avg])),
     carriedStreak,
   });
 
@@ -228,7 +212,7 @@ export async function checkDay(ctx: Ctx, day: string): Promise<void> {
       );
     } else if (prev.status === "resolved") {
       stmts.push(db.prepare("UPDATE anomalies SET status = 'open', message = ?, severity = ?, resolved_at = NULL, resolved_by = NULL WHERE id = ?").bind(a.message, a.severity, prev.id));
-    } else {
+    } else if (prev.message !== a.message || prev.severity !== a.severity) {
       stmts.push(db.prepare("UPDATE anomalies SET message = ?, severity = ? WHERE id = ?").bind(a.message, a.severity, prev.id));
     }
   }
@@ -236,8 +220,53 @@ export async function checkDay(ctx: Ctx, day: string): Promise<void> {
     if (a.status === "open" && !foundKeys.has(anomalyKey(a)))
       stmts.push(db.prepare("UPDATE anomalies SET status = 'resolved', resolved_at = ?, resolved_by = 'auto' WHERE id = ?").bind(ts, a.id));
   }
-  stmts.push(db.prepare("UPDATE days SET checked_at = ? WHERE day = ?").bind(ts, day));
-  await db.batch(stmts);
+  if (stmts.length) await db.batch(stmts);
+}
+
+type StatRow = CellStat & { store_id: number; item_id: number };
+
+/**
+ * History averages used by the checks, from the `hist` days before `day`.
+ * Scanning weeks of order lines is the most expensive query in the app, so the
+ * result for the newest day is cached (stats_cells / stats_items) and reused by
+ * every check that day — each store submission re-checks the open day.
+ */
+async function historyStats(ctx: Ctx, day: string, hist: number): Promise<{ cells: StatRow[]; items: { item_id: number; avg: number }[] }> {
+  const db = ctx.db;
+  const key = `${day}|${hist}`;
+  const [baseR, newerR] = await db.batch([
+    db.prepare("SELECT value FROM settings WHERE key = 'stats_base'"),
+    db.prepare("SELECT 1 FROM days WHERE day > ? LIMIT 1").bind(day),
+  ]);
+  const cached = (baseR.results[0] as { value: string } | undefined)?.value === key;
+  if (cached) {
+    const [c, i] = await db.batch([db.prepare("SELECT * FROM stats_cells"), db.prepare("SELECT * FROM stats_items")]);
+    return { cells: c.results as StatRow[], items: i.results as { item_id: number; avg: number }[] };
+  }
+  const cellsSql = `SELECT store_id, item_id, COUNT(*) AS n, AVG(qty) AS avg, MAX(qty) AS max, SUM(qty > 0) AS nonzero
+     FROM lines WHERE qty IS NOT NULL
+       AND day < ?1 AND day >= COALESCE((SELECT day FROM days WHERE day < ?1 ORDER BY day DESC LIMIT 1 OFFSET ?2 - 1), '')
+     GROUP BY store_id, item_id`;
+  const itemsSql = `SELECT item_id, AVG(t) AS avg FROM (
+       SELECT day, item_id, SUM(qty) AS t FROM lines
+       WHERE day < ?1 AND day >= COALESCE((SELECT day FROM days WHERE day < ?1 ORDER BY day DESC LIMIT 1 OFFSET 13), '')
+       GROUP BY day, item_id)
+     GROUP BY item_id`;
+  const isNewest = newerR.results.length === 0;
+  if (!isNewest) {
+    // Re-checking an older day (admin action): compute without touching the cache.
+    const [c, i] = await db.batch([db.prepare(cellsSql).bind(day, hist), db.prepare(itemsSql).bind(day)]);
+    return { cells: c.results as StatRow[], items: i.results as { item_id: number; avg: number }[] };
+  }
+  await db.batch([
+    db.prepare("DELETE FROM stats_cells"),
+    db.prepare("DELETE FROM stats_items"),
+    db.prepare(`INSERT INTO stats_cells (store_id, item_id, n, avg, max, nonzero) ${cellsSql}`).bind(day, hist),
+    db.prepare(`INSERT INTO stats_items (item_id, avg) ${itemsSql}`).bind(day),
+    db.prepare("INSERT INTO settings (key, value) VALUES ('stats_base', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(key),
+  ]);
+  const [c, i] = await db.batch([db.prepare("SELECT * FROM stats_cells"), db.prepare("SELECT * FROM stats_items")]);
+  return { cells: c.results as StatRow[], items: i.results as { item_id: number; avg: number }[] };
 }
 
 export async function insertAnomalies(db: D1Database, day: string, list: NewAnomaly[]) {

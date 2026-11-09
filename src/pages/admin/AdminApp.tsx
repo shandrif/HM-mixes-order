@@ -19,6 +19,7 @@ export interface Overview {
   anomalies: Partial<Record<"critical" | "warning" | "info", number>>;
   days: { n: number; first: string | null; last: string | null };
   has_orders: boolean;
+  last_locked: { day: string; entered: number | null; carried: number | null; critical: number | null; warning: number | null } | null;
 }
 
 const NAV = [

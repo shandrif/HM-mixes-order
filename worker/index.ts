@@ -126,7 +126,7 @@ app.get("/store/order", async (c) => {
     db
       .prepare(
         `SELECT item_id, qty FROM lines WHERE store_id = ?1
-         AND day = (SELECT MAX(day) FROM lines WHERE store_id = ?1 AND day < ?2)`,
+         AND day = (SELECT MAX(day) FROM days WHERE day < ?2)`,
       )
       .bind(store.id, od),
   ]);
@@ -260,6 +260,15 @@ app.get("/admin/overview", async (c) => {
     db.prepare("SELECT COUNT(*) AS n, MIN(day) AS first, MAX(day) AS last FROM days"),
     db.prepare("SELECT EXISTS (SELECT 1 FROM lines) AS has"),
   ]);
+  const last = await db.prepare("SELECT day FROM days WHERE status = 'locked' ORDER BY day DESC LIMIT 1").first<{ day: string }>();
+  let last_locked = null;
+  if (last) {
+    const [s, a] = await db.batch([
+      db.prepare("SELECT SUM(source = 'entered') AS entered, SUM(source = 'carried_forward') AS carried FROM submissions WHERE day = ?").bind(last.day),
+      db.prepare("SELECT SUM(severity = 'critical') AS critical, SUM(severity = 'warning') AS warning FROM anomalies WHERE day = ? AND status = 'open'").bind(last.day),
+    ]);
+    last_locked = { day: last.day, ...(s.results[0] as object), ...(a.results[0] as object) };
+  }
   return c.json({
     open_day: od,
     cutoff_at: cutoffAt(settings, od),
@@ -269,6 +278,7 @@ app.get("/admin/overview", async (c) => {
     anomalies: Object.fromEntries((anomalies.results as { severity: string; n: number }[]).map((r) => [r.severity, r.n])),
     days: days.results[0],
     has_orders: (lines.results[0] as { has: number }).has === 1,
+    last_locked,
   });
 });
 
@@ -277,12 +287,13 @@ app.get("/admin/days", async (c) => {
   const { results } = await db
     .prepare(
       `SELECT d.day, d.status, d.sheet_name, d.locked_at,
-         (SELECT COUNT(*) FROM submissions s WHERE s.day = d.day AND s.source = 'entered') AS entered,
-         (SELECT COUNT(*) FROM submissions s WHERE s.day = d.day AND s.source = 'carried_forward') AS carried,
-         (SELECT COUNT(*) FROM anomalies a WHERE a.day = d.day AND a.status = 'open' AND a.severity = 'critical') AS critical,
-         (SELECT COUNT(*) FROM anomalies a WHERE a.day = d.day AND a.status = 'open' AND a.severity = 'warning') AS warning,
-         (SELECT COUNT(*) FROM anomalies a WHERE a.day = d.day AND a.status = 'open' AND a.severity = 'info') AS info
-       FROM days d ORDER BY d.day DESC`,
+         COALESCE(s.entered, 0) AS entered, COALESCE(s.carried, 0) AS carried,
+         COALESCE(a.critical, 0) AS critical, COALESCE(a.warning, 0) AS warning, COALESCE(a.info, 0) AS info
+       FROM days d
+       LEFT JOIN (SELECT day, SUM(source = 'entered') AS entered, SUM(source = 'carried_forward') AS carried FROM submissions GROUP BY day) s ON s.day = d.day
+       LEFT JOIN (SELECT day, SUM(severity = 'critical') AS critical, SUM(severity = 'warning') AS warning, SUM(severity = 'info') AS info
+                  FROM anomalies WHERE status = 'open' GROUP BY day) a ON a.day = d.day
+       ORDER BY d.day DESC`,
     )
     .all<{ day: string; sheet_name: string | null }>();
   return c.json(results.map((r) => ({ ...r, sheet_name: r.sheet_name ?? sheetNameFor(r.day, settings.sheet_name_format) })));
@@ -561,7 +572,10 @@ app.post("/admin/import/begin", async (c) => {
   const has = await db.prepare("SELECT COUNT(*) AS n FROM lines").first<{ n: number }>();
   if (has!.n > 0 && !req.replace) fail(409, "There is already order data. Tick “Replace existing data” to import again.");
   // Import always starts from a clean slate (stores, items and history come from the workbook).
-  await db.batch(["lines", "submissions", "anomalies", "days", "stores", "items"].map((t) => db.prepare(`DELETE FROM ${t}`)));
+  await db.batch([
+    ...["lines", "submissions", "anomalies", "days", "stores", "items", "stats_cells", "stats_items"].map((t) => db.prepare(`DELETE FROM ${t}`)),
+    db.prepare("DELETE FROM settings WHERE key = 'stats_base'"),
+  ]);
   // One statement per table (the free plan allows 50 queries per request).
   const itemRows = req.items.map((it, i) => ({ sort: i + 1, name: it.name, code: it.code ?? null, step: it.step ?? 1, active: it.active ?? 1, kind: it.kind ?? "input", factor: it.factor ?? null, buttons_only: it.buttons_only ? 1 : 0 }));
   const storeRows = req.stores.map((s, i) => ({ sort: i + 1, name: s.name, region: s.region ?? null, active: s.active ?? 1 }));

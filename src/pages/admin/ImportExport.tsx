@@ -103,6 +103,8 @@ function Import({ hasData, onChange }: { hasData: boolean; onChange: () => void 
   const [prefer, setPrefer] = useState<string[]>([]);
   const [mapping, setMapping] = useState<Map<string, string | null>>(new Map());
   const [replace, setReplace] = useState(false);
+  // Cloudflare's free plan allows ~100k database writes a day; ~60 days of history fits comfortably.
+  const [keepDays, setKeepDays] = useState("60");
   const [progress, setProgress] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const [done, setDone] = useState(false);
@@ -139,6 +141,7 @@ function Import({ hasData, onChange }: { hasData: boolean; onChange: () => void 
     try {
       const imp = await import("../../excel/importer");
       const payload = imp.buildImportPayload(parsed, mapping);
+      if (keepDays !== "all") payload.days = payload.days.slice(-Number(keepDays));
       setProgress("Creating stores and items…");
       const ids = await api<{ itemIds: Record<string, number>; storeIds: Record<string, number> }>("/admin/import/begin", {
         body: { replace, items: payload.items, stores: payload.stores },
@@ -166,10 +169,13 @@ function Import({ hasData, onChange }: { hasData: boolean; onChange: () => void 
         setProgress(`Importing sheets ${++n} / ${payload.days.length}…`);
       }
       await api("/admin/import/finish", { body: {} });
+      // Typo/spike checks for the most recent two weeks (older history was already checked
+      // for workbook problems while reading the file). Kept small to stay within D1 limits.
+      const recent = payload.days.slice(-14);
       n = 0;
-      for (const d of payload.days) {
+      for (const d of recent) {
         await api(`/admin/days/${d.day}/check`, { body: {} });
-        setProgress(`Checking every day for anomalies ${++n} / ${payload.days.length}…`);
+        setProgress(`Checking recent days for typos ${++n} / ${recent.length}…`);
       }
       setProgress(`Done — imported ${payload.days.length} days, ${payload.stores.filter((s) => s.active).length} stores, ${payload.items.filter((i) => i.active).length} items.`);
       setDone(true);
@@ -302,13 +308,23 @@ function Import({ hasData, onChange }: { hasData: boolean; onChange: () => void 
             <li className="muted">After importing, every day is also checked for typos and unusual quantities. All findings appear on the Anomalies page.</li>
           </ul>
 
+          <label className="inline">
+            History to import
+            <select className="input" value={keepDays} onChange={(e) => setKeepDays(e.target.value)}>
+              <option value="30">Last 30 days</option>
+              <option value="60">Last 60 days (recommended on the free plan)</option>
+              <option value="90">Last 90 days</option>
+              <option value="all">All {parsed.days.length} days (needs Cloudflare Workers Paid)</option>
+            </select>
+          </label>
+          <p className="muted small">The free Cloudflare plan allows about 100,000 database writes per day; each day of history is ~800 rows.</p>
           {hasData && (
             <label className="check notice critical">
               <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} /> Replace ALL existing data (stores, items, days, orders) with this workbook
             </label>
           )}
           <button className="btn primary" disabled={busy || (hasData && !replace)} onClick={run}>
-            Import {parsed.days.length} days
+            Import {keepDays === "all" ? parsed.days.length : Math.min(parsed.days.length, Number(keepDays))} days
           </button>
         </div>
       )}
