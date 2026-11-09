@@ -105,6 +105,11 @@ export function ensureSchema(db: D1Database): Promise<void> {
       // Admins can turn them back on under Settings.
       const migr = await db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('migr_pin_default_off', '1')").run();
       if (migr.meta.changes) await db.prepare("UPDATE settings SET value = '0' WHERE key = 'require_pin'").run();
+      // One-time: sheets are now dated by delivery day. Remove empty open sheets
+      // created under the old rule so they are not locked and copied forward.
+      const migr2 = await db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('migr_delivery_day', '1')").run();
+      if (migr2.meta.changes)
+        await db.prepare("DELETE FROM days WHERE status = 'open' AND NOT EXISTS (SELECT 1 FROM lines l WHERE l.day = days.day)").run();
     })().catch((e) => {
       ready = null;
       throw e;

@@ -30,6 +30,18 @@ export function fmtTime(iso: string, locale = "en-GB") {
   return new Date(iso).toLocaleString(locale, { timeZone: "Asia/Riyadh", hour: "numeric", minute: "2-digit", hour12: true });
 }
 
+/** "today 6:30 pm" / "tomorrow 6:30 pm" / "Tue 10 Nov 6:30 pm" (Riyadh time). */
+export function fmtCutoff(iso: string, lang: "en" | "ar" = "en") {
+  const day = (ms: number) => new Date(ms + 3 * 3600_000).toISOString().slice(0, 10);
+  const target = day(Date.parse(iso));
+  const today = day(Date.now());
+  const tomorrow = day(Date.now() + 86_400_000);
+  const time = fmtTime(iso, lang === "ar" ? "ar-SA" : "en-GB");
+  if (target === today) return `${lang === "ar" ? "اليوم" : "today"} ${time}`;
+  if (target === tomorrow) return `${lang === "ar" ? "غداً" : "tomorrow"} ${time}`;
+  return fmtDateTime(iso);
+}
+
 export function fmtDateTime(iso: string) {
   return new Date(iso).toLocaleString("en-GB", { timeZone: "Asia/Riyadh", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true });
 }
