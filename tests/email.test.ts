@@ -1,39 +1,46 @@
-// Daily email: sent once per locked day through Brevo (fetch is mocked).
+// Review → send: the admin sends a locked, reviewed day with the branded Excel
+// file through Brevo (fetch to Brevo is mocked).
+import ExcelJS from "exceljs";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getPlatformProxy } from "wrangler";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { ensureSchema, loadCfg, updateCfg, updateSheet } from "../worker/db";
-import { sendDueDailyEmail } from "../worker/email";
-import { rollover, type Ctx } from "../worker/logic";
+import worker from "../worker/index";
+import { buildOrderWorkbook, bufferToBase64, orderFileName } from "../src/excel/orderSheet";
+import type { DayDetail } from "../shared/types";
 
 let proxy: Awaited<ReturnType<typeof getPlatformProxy<{ DB: D1Database }>>>;
-let ctx: Ctx;
-const T = (iso: string) => Date.parse(iso);
-const calls: { url: string; body: any; headers: Record<string, string> }[] = [];
+let env: { DB: D1Database; ASSETS: Fetcher };
+const jar: Record<string, string> = {};
+const brevo: { headers: Record<string, string>; body: any }[] = [];
 let brevoStatus = 201;
+const realFetch = globalThis.fetch;
+
+async function call(path: string, body?: unknown, method?: string) {
+  const m = method ?? (body ? "POST" : "GET");
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  const cookie = Object.entries(jar).map(([k, v]) => `${k}=${v}`).join("; ");
+  if (cookie) headers.cookie = cookie;
+  const res = await worker.fetch(new Request("https://hm.example/api" + path, { method: m, headers, body: m === "GET" ? undefined : JSON.stringify(body ?? {}) }), env as any, { waitUntil() {}, passThroughOnException() {} } as any);
+  for (const c of res.headers.getSetCookie?.() ?? []) {
+    const [kv] = c.split(";");
+    const [k, v] = kv.split("=");
+    jar[k] = v;
+  }
+  const t = await res.text();
+  return { status: res.status, json: t ? JSON.parse(t) : null };
+}
 
 beforeAll(async () => {
-  proxy = await getPlatformProxy<{ DB: D1Database }>({ persist: { path: mkdtempSync(join(tmpdir(), "hm-mail-")) } });
-  const db = proxy.env.DB;
-  await ensureSchema(db);
-  await updateCfg(db, (k) => {
-    k.items = [
-      { id: 1, name: "Cereal", name_ar: null, code: null, step: 1, sort: 1, active: 1, kind: "input", source_item_id: null, factor: null, buttons_only: 0 },
-      { id: 2, name: "Cookie Topping (gram)", name_ar: null, code: null, step: 480, sort: 2, active: 1, kind: "input", source_item_id: null, factor: null, buttons_only: 1 },
-    ];
-    k.stores = [
-      { id: 1, name: "Rawabi", name_ar: null, region: null, sort: 1, active: 1, pin: null },
-      { id: 2, name: "Nadwa, North", name_ar: null, region: null, sort: 2, active: 1, pin: null },
-    ];
-    k.email = { enabled: true, api_key: "xkeysib-test", sender_email: "orders@halfm.sa", sender_name: "HM Orders", recipients: ["prod@halfm.sa", "ops@halfm.sa"], site_url: "https://hm.example", since: "2026-11-10" };
-  });
-  const { cfg, open_day } = await loadCfg(db);
-  ctx = { db, cfg, open_day };
-  vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
-    calls.push({ url, body: JSON.parse(String(init.body)), headers: init.headers as Record<string, string> });
-    return new Response(brevoStatus === 201 ? '{"messageId":"x"}' : '{"message":"Key not found"}', { status: brevoStatus });
+  proxy = await getPlatformProxy<{ DB: D1Database }>({ persist: { path: mkdtempSync(join(tmpdir(), "hm-send-")) } });
+  env = { DB: proxy.env.DB, ASSETS: {} as Fetcher };
+  vi.stubGlobal("fetch", async (url: string | Request, init?: RequestInit) => {
+    if (String(url).startsWith("https://api.brevo.com")) {
+      brevo.push({ headers: init!.headers as Record<string, string>, body: JSON.parse(String(init!.body)) });
+      return new Response(brevoStatus === 201 ? '{"messageId":"x"}' : '{"message":"Key not found"}', { status: brevoStatus });
+    }
+    return realFetch(url as any, init);
   });
 }, 60_000);
 
@@ -42,49 +49,78 @@ afterAll(async () => {
   await proxy?.dispose();
 });
 
-describe("daily order email", () => {
-  it("emails the locked day once, after the cutoff", async () => {
-    // 9 Nov 17:00 Riyadh: the 10 Nov sheet is open; nothing locked → nothing to send
-    await rollover(ctx, T("2026-11-09T14:00:00Z"));
-    expect(await sendDueDailyEmail(ctx)).toBeNull();
-    await updateSheet(ctx.db, "2026-11-10", (_r, data) => {
-      data.q[1] = { 1: 6, 2: 960 };
-      data.sub[1] = ["entered", "x", 1];
-      return { data };
+describe("review and send a day", () => {
+  it("sends the branded Excel only after critical issues are handled", async () => {
+    await call("/admin/setup", { email: "owner@halfm.sa", password: "secret-pass-1" });
+    const begin = await call("/admin/import/begin", {
+      replace: true,
+      items: [
+        { key: "c", name: "Cereal Latte mixture (5L gal)", code: "1624019", step: 1, kind: "input", active: 1 },
+        { key: "k", name: "Cookie Topping (gram)", code: null, step: 480, kind: "input", active: 1 },
+      ],
+      stores: [{ key: "r", name: "Rawabi", active: 1 }, { key: "n", name: "Nadwa", active: 1 }],
     });
-    // 18:30: 10 Nov locks
-    await rollover(ctx, T("2026-11-09T15:30:00Z"));
+    const { itemIds: I, storeIds: S } = begin.json;
+    const layout = { items: [{ id: I.c, name: "Cereal Latte mixture (5L gal)", code: "1624019", kind: "input", source_item_id: null, factor: null, step: 1 }, { id: I.k, name: "Cookie Topping (gram)", code: null, kind: "input", source_item_id: null, factor: null, step: 480 }], stores: [{ id: S.r, name: "Rawabi" }, { id: S.n, name: "Nadwa" }], total_label: "Total Riyadh Production" };
+    for (const [day, c1, c2] of [["2026-11-04", 5, 4], ["2026-11-05", 6, 40]] as const)
+      await call("/admin/import/day", {
+        day, sheet_name: day, layout,
+        lines: [[S.r, I.c, c1, "imported"], [S.r, I.k, 960, "imported"], [S.n, I.c, c2, "imported"], [S.n, I.k, 480, "imported"]],
+        anomalies: day === "2026-11-05" ? [{ store_id: S.n, item_id: I.c, rule: "spike", severity: "critical", message: "Nadwa: Cereal = 40, usually ~4" }] : [],
+      });
+    await call("/admin/import/finish", {});
 
-    brevoStatus = 401; // Brevo rejects → error, claim released for a retry
-    await expect(sendDueDailyEmail(ctx)).rejects.toThrow(/Brevo error 401: Key not found/);
+    // Not configured yet
+    expect((await call("/admin/days/2026-11-05/send", { recipients: "f@x.sa", filename: "a.xlsx", file_base64: "AAAA" })).status).toBe(400);
+    expect((await call("/admin/email", { api_key: "xkeysib-abc123", sender_email: "orders@halfm.sa", sender_name: "HM Orders", recipients: "factory@halfm.sa\nops@halfm.sa" }, "PUT")).json).toMatchObject({ has_key: true, key_hint: "…c123", recipients: ["factory@halfm.sa", "ops@halfm.sa"] });
+    expect(JSON.stringify((await call("/admin/email")).json)).not.toContain("xkeysib-abc123");
+
+    // Build the file exactly like the browser does
+    const detail = (await call("/admin/days/2026-11-05")).json as DayDetail;
+    const previous = (await call("/admin/days/2026-11-04")).json as DayDetail;
+    const wb = buildOrderWorkbook(ExcelJS, detail, { previous, sentBy: "owner@halfm.sa", sentAt: new Date("2026-11-04T16:00:00Z"), note: "Checked with Nadwa" });
+    const file_base64 = bufferToBase64((await wb.xlsx.writeBuffer()) as ArrayBuffer);
+    const payload = { recipients: "factory@halfm.sa", note: "Checked with Nadwa", filename: orderFileName("2026-11-05"), file_base64 };
+
+    // Critical issue open → refused
+    const blocked = await call("/admin/days/2026-11-05/send", payload);
+    expect(blocked.status).toBe(409);
+    expect(blocked.json.error).toContain("critical");
+    await call("/admin/anomalies/bulk", { ids: detail.anomalies.map((a) => a.id), status: "ignored", note: "confirmed by phone" });
+
+    // Brevo error is reported, nothing marked as sent
+    brevoStatus = 401;
+    const failed = await call("/admin/days/2026-11-05/send", payload);
+    expect(failed.status).toBe(502);
+    expect(failed.json.error).toContain("Key not found");
+    expect((await call("/admin/days/2026-11-05")).json.sent).toBeNull();
+
     brevoStatus = 201;
-    expect(await sendDueDailyEmail(ctx)).toBe("2026-11-10");
-    expect(await sendDueDailyEmail(ctx)).toBeNull(); // never twice
+    const ok = await call("/admin/days/2026-11-05/send", payload);
+    expect(ok.status).toBe(200);
+    expect((await call("/admin/days/2026-11-05")).json.sent).toMatchObject({ by: "owner@halfm.sa" });
 
-    const sent = calls.at(-1)!;
-    expect(sent.url).toBe("https://api.brevo.com/v3/smtp/email");
-    expect(sent.headers["api-key"]).toBe("xkeysib-test");
-    expect(sent.body.to).toEqual([{ email: "prod@halfm.sa" }, { email: "ops@halfm.sa" }]);
-    expect(sent.body.sender).toEqual({ email: "orders@halfm.sa", name: "HM Orders" });
-    expect(sent.body.subject).toContain("10 November 2026");
-    expect(sent.body.subject).toContain("1/2 branches");
-    expect(sent.body.htmlContent).toContain("No order: Nadwa, North");
-    expect(sent.body.htmlContent).toContain("https://hm.example/admin/day/2026-11-10");
-    const att = sent.body.attachment[0];
-    expect(att.name).toBe("Mixes_Order_10_Nov.csv");
-    const csv = new TextDecoder().decode(Uint8Array.from(atob(att.content), (c) => c.charCodeAt(0)));
-    expect(csv).toContain("Store,Cereal,Cookie Topping (gram)");
-    expect(csv).toContain("Rawabi,6,960");
-    expect(csv).toContain('"Nadwa, North",,');
-    expect(csv).toContain("Total Riyadh Production,6,960");
-  });
+    const sent = brevo.at(-1)!;
+    expect(sent.headers["api-key"]).toBe("xkeysib-abc123");
+    expect(sent.body.to).toEqual([{ email: "factory@halfm.sa" }]);
+    expect(sent.body.subject).toContain("5 November 2026");
+    expect(sent.body.htmlContent).toContain("Checked with Nadwa");
+    expect(sent.body.htmlContent).toContain("1,440"); // Cookie total 960 + 480
+    expect(sent.body.attachment[0].name).toBe("HM_Mixes_Order_05_Nov_2026.xlsx");
 
-  it("does not email imported history from before the email was turned on", async () => {
-    const { cfg } = await updateCfg(ctx.db, (k) => {
-      k.email!.since = "2026-12-01";
-    });
-    ctx.cfg = cfg;
-    await rollover(ctx, T("2026-11-10T15:30:00Z")); // locks 11 Nov
-    expect(await sendDueDailyEmail(ctx)).toBeNull();
-  });
+    // The attached workbook is the branded file
+    const back = new ExcelJS.Workbook();
+    await back.xlsx.load(Uint8Array.from(atob(sent.body.attachment[0].content), (c) => c.charCodeAt(0)).buffer as ArrayBuffer);
+    expect(back.worksheets.map((w) => w.name)).toEqual(["Order", "Factory summary"]);
+    const order = back.getWorksheet("Order")!;
+    expect(String(order.getCell("A1").value)).toContain("MIXES ORDER");
+    expect(String(order.getCell("A2").value)).toContain("5 November 2026");
+    const fsum = back.getWorksheet("Factory summary")!;
+    const rows: unknown[][] = [];
+    fsum.eachRow((r) => rows.push((r.values as unknown[]).slice(1)));
+    const cookie = rows.find((r) => r[1] === "Cookie Topping (gram)")!;
+    expect(cookie.slice(3)).toEqual([1440, 2, 1440, 0]); // total, branches, previous, change
+    const cereal = rows.find((r) => String(r[1]).startsWith("Cereal"))!;
+    expect(cereal.slice(2)).toEqual([1624019, 46, 2, 9, 37]);
+  }, 120_000);
 });

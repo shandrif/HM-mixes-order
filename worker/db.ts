@@ -26,15 +26,13 @@ export interface Config {
   email?: EmailSettings;
 }
 
-/** Daily order email via Brevo (https://www.brevo.com). */
+/** Order email via Brevo (https://www.brevo.com). Sent by an admin after review. */
 export interface EmailSettings {
-  enabled: boolean;
   api_key: string; // never sent to the browser
   sender_email: string; // must be a verified sender in Brevo
   sender_name: string;
-  recipients: string[];
+  recipients: string[]; // default recipients (editable per send)
   site_url: string; // for links in the email (taken from the admin's browser)
-  since: string; // only days on/after this are emailed (not imported history)
 }
 
 /** Quantities for one day. */
@@ -62,6 +60,8 @@ export interface SheetRow {
   decisions: string; // key -> Decision
   locked_at: string | null;
   rev: number;
+  emailed_at?: string | null;
+  emailed_by?: string | null;
 }
 
 export type Finding = NewAnomaly & { key: string };
@@ -97,6 +97,7 @@ const SCHEMA = [
      decisions TEXT NOT NULL DEFAULT '{}',
      locked_at TEXT,
      emailed_at TEXT,
+     emailed_by TEXT,
      rev INTEGER NOT NULL DEFAULT 0,
      n_entered INTEGER NOT NULL DEFAULT 0,
      n_carried INTEGER NOT NULL DEFAULT 0,
@@ -119,6 +120,7 @@ export function ensureSchema(db: D1Database): Promise<void> {
       await db.batch(SCHEMA.map((s) => db.prepare(s)));
       const cols = (await db.prepare("PRAGMA table_info(sheets)").all<{ name: string }>()).results;
       if (!cols.some((c) => c.name === "emailed_at")) await db.prepare("ALTER TABLE sheets ADD COLUMN emailed_at TEXT").run();
+      if (!cols.some((c) => c.name === "emailed_by")) await db.prepare("ALTER TABLE sheets ADD COLUMN emailed_by TEXT").run();
       const has = await db.prepare("SELECT 1 FROM cfg WHERE id = 1").first();
       if (!has) {
         const migrated = await migrateFromRowsPerLine(db);
@@ -160,7 +162,7 @@ export async function updateCfg<T>(db: D1Database, fn: (cfg: Config) => T): Prom
 // ───────────── sheets ─────────────
 
 export async function getSheet(db: D1Database, day: string): Promise<SheetRow | null> {
-  return db.prepare("SELECT day, status, sheet_name, layout, data, found, hist, decisions, locked_at, rev FROM sheets WHERE day = ?").bind(day).first<SheetRow>();
+  return db.prepare("SELECT day, status, sheet_name, layout, data, found, hist, decisions, locked_at, rev, emailed_at, emailed_by FROM sheets WHERE day = ?").bind(day).first<SheetRow>();
 }
 
 export function parseData(s: string | null | undefined): SheetData {

@@ -175,6 +175,7 @@ export async function dayDetail(ctx: Ctx, day: string): Promise<DayDetail | null
     lines,
     submissions: Object.entries(data.sub).map(([sid, s]) => [Number(sid), s[0], s[1]]),
     anomalies: anomaliesOf(day, JSON.parse(row.found), JSON.parse(row.hist), JSON.parse(row.decisions)).sort((a, b) => sev[a.severity] - sev[b.severity]),
+    sent: row.emailed_at ? { at: row.emailed_at, by: row.emailed_by ?? null } : null,
   };
 }
 

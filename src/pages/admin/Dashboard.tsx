@@ -63,7 +63,12 @@ export default function Dashboard({ overview, onChange }: { overview: Overview |
             ) : (
               "No open issues."
             )}{" "}
-            <Link to={`/admin/day/${prev.day}`}>Review sheet →</Link>
+            {prev.sent_at ? (
+              <span className="pill open">✓ Sent to factory & stores {fmtDateTime(prev.sent_at)}</span>
+            ) : (
+              <strong className="warning-text">Not sent to the factory yet.</strong>
+            )}{" "}
+            <Link to={`/admin/day/${prev.day}`}>{prev.sent_at ? "Open sheet →" : "Review & send →"}</Link>
           </p>
         </section>
       )}

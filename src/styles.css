@@ -461,3 +461,13 @@ table.sheet tfoot .sticky-col { z-index: 3; background: var(--gold-soft); }
   .stepper input { width: 52px; }
   .submit-bar .btn.big { width: 100%; }
 }
+
+/* Send reviewed day */
+.send-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--paper); margin-bottom: 14px; }
+.send-bar > div:first-child { display: flex; flex-direction: column; gap: 2px; }
+.send-bar.ready { border-left: 5px solid var(--gold); }
+.send-bar.blocked { border-left: 5px solid var(--critical); background: var(--critical-soft); }
+.send-bar.sent { border-left: 5px solid var(--ok); background: var(--ok-soft); }
+.modal-back { position: fixed; inset: 0; z-index: 50; background: rgba(20, 16, 13, 0.45); display: grid; place-items: center; padding: 16px; }
+.modal { width: 100%; max-width: 520px; margin: 0; }
+.modal textarea { width: 100%; resize: vertical; font: inherit; }

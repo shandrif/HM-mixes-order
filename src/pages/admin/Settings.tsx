@@ -155,7 +155,6 @@ export default function SettingsPage({ me, onChange }: { me: string; onChange: (
 }
 
 interface EmailInfo {
-  enabled: boolean;
   has_key: boolean;
   key_hint: string;
   sender_email: string;
@@ -178,15 +177,15 @@ function EmailSection() {
   }, []);
   if (!e) return null;
 
-  const save = async (enabled = e.enabled) => {
+  const save = async () => {
     setBusy(true);
     setMsg(null);
     try {
-      const r = await api<EmailInfo>("/admin/email", { method: "PUT", body: { ...e, enabled, api_key: key, recipients } });
+      const r = await api<EmailInfo>("/admin/email", { method: "PUT", body: { ...e, api_key: key, recipients } });
       setE(r);
       setKey("");
       setRecipients(r.recipients.join("\n"));
-      setMsg({ ok: true, text: r.enabled ? "Saved. The order will be emailed after each cutoff." : "Saved (daily email is off)." });
+      setMsg({ ok: true, text: "Saved." });
     } catch (err) {
       setMsg({ ok: false, text: (err as Error).message });
     } finally {
@@ -198,8 +197,8 @@ function EmailSection() {
     setBusy(true);
     setMsg(null);
     try {
-      const r = await api<{ day: string; recipients: string[] }>("/admin/email/test", { body: {} });
-      setMsg({ ok: true, text: `Test email for ${r.day} sent to ${r.recipients.join(", ")}. Check the inbox (and spam).` });
+      const r = await api<{ recipients: string[] }>("/admin/email/test", { body: {} });
+      setMsg({ ok: true, text: `Test email sent to ${r.recipients.join(", ")}. Check the inbox (and spam).` });
     } catch (err) {
       setMsg({ ok: false, text: (err as Error).message });
     } finally {
@@ -207,6 +206,7 @@ function EmailSection() {
     }
   };
 
+  const ready = e.has_key && !!e.sender_email;
   return (
     <form
       className="card form-grid"
@@ -216,15 +216,15 @@ function EmailSection() {
       }}
     >
       <div className="row-between">
-        <h2>Daily order email</h2>
-        <span className={"pill " + (e.enabled ? "open" : "")}>{e.enabled ? "On" : "Off"}</span>
+        <h2>Order email (Brevo)</h2>
+        <span className={"pill " + (ready ? "open" : "")}>{ready ? "Connected" : "Not set up"}</span>
       </div>
       <p className="muted small">
-        After each {""}cutoff, the locked order (totals, every branch, spreadsheet attached) is emailed to the people below. Sent through your{" "}
+        After the cutoff, review the locked day and press <b>Send to factory &amp; stores</b> on its sheet. The branded Excel file is emailed through your{" "}
         <a href="https://app.brevo.com" target="_blank" rel="noreferrer">
           Brevo
         </a>{" "}
-        account.
+        account to the people below. Nothing is sent automatically.
       </p>
       <label className="field">
         <span>Brevo API key</span>
@@ -236,37 +236,29 @@ function EmailSection() {
           value={key}
           onChange={(ev) => setKey(ev.target.value)}
         />
-        <small className="muted">Brevo → your name (top right) → SMTP & API → API Keys → Generate a new API key. It is stored on the server and never shown again.</small>
+        <small className="muted">Brevo → your name (top right) → SMTP &amp; API → API Keys → Generate a new API key. It is stored on the server and never shown again.</small>
       </label>
       <label className="field">
         <span>Sender email</span>
         <input className="input" type="email" placeholder="orders@halfm.sa" value={e.sender_email} onChange={(ev) => setE({ ...e, sender_email: ev.target.value })} />
-        <small className="muted">Must be a verified sender in Brevo (Brevo → Senders, Domains & Dedicated IPs → Senders).</small>
+        <small className="muted">Must be a verified sender in Brevo (Senders, Domains &amp; Dedicated IPs → Senders).</small>
       </label>
       <label className="field">
         <span>Sender name</span>
         <input className="input" value={e.sender_name} onChange={(ev) => setE({ ...e, sender_name: ev.target.value })} />
       </label>
       <label className="field">
-        <span>Send to (one email per line)</span>
-        <textarea className="input" rows={4} placeholder={"production@halfm.sa\nops@halfm.sa"} value={recipients} onChange={(ev) => setRecipients(ev.target.value)} />
+        <span>Default recipients — factory, stores, managers (one email per line)</span>
+        <textarea className="input" rows={5} placeholder={"factory@halfm.sa\nops@halfm.sa"} value={recipients} onChange={(ev) => setRecipients(ev.target.value)} />
+        <small className="muted">You can still change the list for a single send.</small>
       </label>
       {msg && <p className={msg.ok ? "ok-text" : "error"}>{msg.text}</p>}
       <div className="toolbar">
-        {e.enabled ? (
-          <button type="button" className="btn ghost" disabled={busy} onClick={() => save(false)}>
-            Turn off
-          </button>
-        ) : (
-          <button type="button" className="btn primary" disabled={busy} onClick={() => save(true)}>
-            Save & turn on
-          </button>
-        )}
-        <button className="btn" disabled={busy}>
+        <button className="btn primary" disabled={busy}>
           Save
         </button>
-        <button type="button" className="btn ghost" disabled={busy || !e.has_key} onClick={test} title={e.has_key ? "" : "Save the API key first"}>
-          Send test email now
+        <button type="button" className="btn ghost" disabled={busy || !ready} onClick={test} title={ready ? "" : "Save the API key and sender first"}>
+          Send test email
         </button>
       </div>
     </form>
