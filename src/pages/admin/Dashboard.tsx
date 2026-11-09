@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { formatDayLong } from "../../../shared/time";
 import type { DayDetail } from "../../../shared/types";
-import { api, fmtDateTime, fmtTime, shortDay } from "../../api";
+import { api, fmtCutoff, fmtDateTime, shortDay } from "../../api";
 import { Link } from "../../router";
 import type { Overview } from "./AdminApp";
 
@@ -27,10 +27,10 @@ export default function Dashboard({ overview, onChange }: { overview: Overview |
     <div className="page">
       <header className="page-head">
         <div>
-          <div className="eyebrow">Open for ordering</div>
+          <div className="eyebrow">Open for ordering · delivery day</div>
           <h1>{formatDayLong(overview.open_day)}</h1>
           <p className="muted">
-            Stores can enter quantities until <strong>{fmtTime(overview.cutoff_at)}</strong> (Riyadh). Then the sheet locks, missing stores get the previous day copied, checks run, and the next day opens.
+            Stores can enter quantities until <strong>{fmtCutoff(overview.cutoff_at)}</strong> (Riyadh). Then the sheet locks, missing stores get the previous day copied, checks run, and the next day opens.
           </p>
         </div>
         <Link className="btn primary" to={`/admin/day/${overview.open_day}`}>

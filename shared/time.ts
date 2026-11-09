@@ -1,7 +1,10 @@
 // Date helpers. Saudi Arabia has no daylight saving, so a fixed offset is exact.
 //
-// A sheet dated D is open for entries from (D-1 at cutoff) until (D at cutoff),
-// local time. At D's cutoff it locks and D+1 opens.
+// A sheet is dated with its DELIVERY day. Stores order the day before:
+// the sheet dated D is open from (D-2 at cutoff) until (D-1 at cutoff), local time.
+// Example (cutoff 18:30): on 9 Nov before 18:30 stores fill the 10 Nov sheet;
+// at 18:30 on 9 Nov it locks and the 11 Nov sheet opens.
+export const DAYS_AHEAD = 1;
 
 export function parseCutoff(cutoff: string): number {
   const m = /^(\d{1,2}):(\d{2})$/.exec(cutoff.trim());
@@ -23,12 +26,12 @@ export function addDays(day: string, n: number): string {
 /** The day whose sheet currently accepts entries. */
 export function openDayAt(nowMs: number, cutoffMin: number, offsetMin: number): string {
   const p = localParts(nowMs, offsetMin);
-  return p.minutes >= cutoffMin ? addDays(p.date, 1) : p.date;
+  return addDays(p.date, DAYS_AHEAD + (p.minutes >= cutoffMin ? 1 : 0));
 }
 
 /** UTC instant at which the sheet for `day` locks. */
 export function cutoffInstant(day: string, cutoffMin: number, offsetMin: number): number {
-  return Date.parse(day + "T00:00:00Z") + (cutoffMin - offsetMin) * 60_000;
+  return Date.parse(addDays(day, -DAYS_AHEAD) + "T00:00:00Z") + (cutoffMin - offsetMin) * 60_000;
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

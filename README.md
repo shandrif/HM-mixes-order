@@ -48,7 +48,7 @@ Open `https://…workers.dev/admin`. On the first visit it asks you to choose an
 
 | Thing | Behaviour |
 |---|---|
-| Order day | The sheet dated **D** accepts entries from D-1 18:30 until D 18:30 (Riyadh). Change the time under Settings. |
+| Order day | Sheets carry the **delivery** date. Stores order the day before: the sheet for **D** is open until **D-1 at 18:30** (Riyadh). E.g. on 9 Nov stores fill the 10 Nov sheet until 18:30, then 11 Nov opens. Change the time under Settings. |
 | Cutoff | A cron job runs every 15 minutes and locks any day past its cutoff. Entries after the cutoff are refused even if the job runs late. |
 | No submission | At lock time, the store’s previous-day quantities are copied (marked “copied”, shown in blue in the sheet, reported as info). Three or more days in a row creates a warning. |
 | Calculated items | Items such as *Cookie Topping = Vanilla × 480*. Change the multiplier or source item under **Items**. Exported as real formulas. An admin can type over one cell (shaded orange, flagged), and clearing it restores the formula. |

@@ -31,26 +31,26 @@ afterAll(async () => {
 describe("cutoff rollover", () => {
   it("opens the right day and locks at 18:30 Riyadh with carry-forward", async () => {
     const db = ctx.db;
-    // Nov 4, 17:00 Riyadh → Nov 4 is open.
-    expect((await rollover(ctx, T("2026-11-04T14:00:00Z"))).open).toBe("2026-11-04");
+    // Nov 3, 17:00 Riyadh → stores fill the Nov 4 sheet.
+    expect((await rollover(ctx, T("2026-11-03T14:00:00Z"))).open).toBe("2026-11-04");
     // Both Rawabi and Nadwa order on Nov 4.
     await db.batch([
       db.prepare("INSERT INTO lines (day, store_id, item_id, qty, source) VALUES ('2026-11-04', 10, 1, 6, 'entered'), ('2026-11-04', 10, 2, 2, 'entered'), ('2026-11-04', 11, 1, 5, 'entered'), ('2026-11-04', 11, 2, 1, 'entered')"),
       db.prepare("INSERT INTO submissions (day, store_id, source, submitted_at) VALUES ('2026-11-04', 10, 'entered', 'x'), ('2026-11-04', 11, 'entered', 'x')"),
     ]);
-    // 18:30 Riyadh → Nov 4 locks, Nov 5 opens.
-    const r1 = await rollover(ctx, T("2026-11-04T15:30:00Z"));
+    // Nov 3 18:30 Riyadh → Nov 4 sheet locks, Nov 5 opens.
+    const r1 = await rollover(ctx, T("2026-11-03T15:30:00Z"));
     expect(r1).toEqual({ locked: ["2026-11-04"], open: "2026-11-05" });
     // Running again is a no-op (cron every 15 min).
-    expect((await rollover(ctx, T("2026-11-04T15:45:00Z"))).locked).toEqual([]);
+    expect((await rollover(ctx, T("2026-11-03T15:45:00Z"))).locked).toEqual([]);
 
     // On Nov 5 only Rawabi submits.
     await db.batch([
       db.prepare("INSERT INTO lines (day, store_id, item_id, qty, source) VALUES ('2026-11-05', 10, 1, 7, 'entered'), ('2026-11-05', 10, 2, 3, 'entered')"),
       db.prepare("INSERT INTO submissions (day, store_id, source, submitted_at) VALUES ('2026-11-05', 10, 'entered', 'x')"),
     ]);
-    // Cron runs late (18:52) — still locks Nov 5.
-    const r2 = await rollover(ctx, T("2026-11-05T15:52:00Z"));
+    // Cron runs late (Nov 4, 18:52) — still locks the Nov 5 sheet.
+    const r2 = await rollover(ctx, T("2026-11-04T15:52:00Z"));
     expect(r2).toEqual({ locked: ["2026-11-05"], open: "2026-11-06" });
 
     const d = (await dayDetail(ctx, "2026-11-05"))!;
@@ -67,8 +67,8 @@ describe("cutoff rollover", () => {
   });
 
   it("a store edit after the cutoff is refused (day no longer open)", () => {
-    expect(openDay(ctx.settings, T("2026-11-05T15:30:01Z"))).toBe("2026-11-06");
-    expect(openDay(ctx.settings, T("2026-11-05T15:29:59Z"))).toBe("2026-11-05");
+    expect(openDay(ctx.settings, T("2026-11-04T15:30:01Z"))).toBe("2026-11-06");
+    expect(openDay(ctx.settings, T("2026-11-04T15:29:59Z"))).toBe("2026-11-05");
   });
 
   it("renaming a store later does not change locked days", async () => {

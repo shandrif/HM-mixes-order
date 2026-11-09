@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, formatDayLong } from "../../../shared/time";
 import { RULES, type Anomaly, type DayDetail } from "../../../shared/types";
-import { api, fmtDateTime, fmtQty, fmtTime } from "../../api";
+import { api, fmtCutoff, fmtDateTime, fmtQty } from "../../api";
 import { Link, navigate } from "../../router";
 
 type Edit = number | null; // null = blank (input) / back to formula (calculated)
@@ -142,7 +142,7 @@ export default function DayGrid({ day, focus, onChange }: { day: string; focus: 
           <div className="eyebrow">
             Sheet “{data.sheet_name}” ·{" "}
             {data.status === "open" ? (
-              <span className="pill open">Open until {fmtTime(data.cutoff_at)}</span>
+              <span className="pill open">Open until {fmtCutoff(data.cutoff_at)}</span>
             ) : (
               <span className="pill locked">Locked (hidden from stores)</span>
             )}

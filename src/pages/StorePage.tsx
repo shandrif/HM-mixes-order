@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatDayLong } from "../../shared/time";
-import { api, ApiError, fmtQty, fmtTime } from "../api";
+import { api, ApiError, fmtCutoff, fmtQty, fmtTime } from "../api";
 import { strings, useLang } from "../i18n";
 
 interface PublicInfo {
@@ -128,7 +128,7 @@ function Login({ lang, onDone }: { lang: "en" | "ar"; onDone: () => void }) {
         <h1>{t.chooseStore}</h1>
         {info && (
           <p className="muted">
-            {t.orderFor} <strong>{formatDayLong(info.open_day, lang === "ar" ? "ar-SA-u-ca-gregory" : "en-GB")}</strong> · {t.closesAt} {fmtTime(info.cutoff_at, lang === "ar" ? "ar-SA" : "en-GB")}
+            {t.orderFor} <strong>{formatDayLong(info.open_day, lang === "ar" ? "ar-SA-u-ca-gregory" : "en-GB")}</strong> · {t.closesAt} {fmtCutoff(info.cutoff_at, lang)}
           </p>
         )}
         {info && info.stores.length === 0 && <p className="notice">{t.noStores}</p>}
@@ -280,7 +280,7 @@ function OrderForm({ data, lang, onReload, onSwitch }: { data: OrderData; lang: 
                 {t.minutes} {h === 0 && `${String(s).padStart(2, "0")}s`}
               </strong>
               <small>
-                {t.closesAt} {fmtTime(data.cutoff_at, locale)}
+                {t.closesAt} {fmtCutoff(data.cutoff_at, lang)}
               </small>
             </>
           )}
