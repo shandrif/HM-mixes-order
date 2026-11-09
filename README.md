@@ -30,15 +30,10 @@ Runs entirely on Cloudflare’s free plan: Workers (app + API), D1 (database) an
 
 From now on every push to that branch redeploys automatically. The database tables are created automatically on first use.
 
-### 3. Set the first admin login
-Worker → **Settings → Variables and Secrets → Add**:
+### 3. Create the admin account
+Open `https://…workers.dev/admin`. On the first visit it asks you to choose an admin email and password. The first person to do this becomes the admin, so do it right after the first deploy. You can add more admins later under Settings → Admins.
 
-| Type | Name | Value |
-|---|---|---|
-| Secret | `ADMIN_EMAIL` | your email |
-| Secret | `ADMIN_PASSWORD` | a strong password |
-
-Then **Deploy** again (or push any change). You can add more admins later inside the app (Settings → Admins).
+(Optional alternative: set `ADMIN_EMAIL` / `ADMIN_PASSWORD` as Worker secrets. The first-visit screen is then turned off.)
 
 ### 4. Load the current workbook
 1. Open `https://…workers.dev/admin` and sign in.
