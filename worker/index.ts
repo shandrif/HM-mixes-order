@@ -21,6 +21,7 @@ import {
   type Decision,
   type Finding,
 } from "./db";
+import { buildDailyEmail, publicEmailSettings, sendBrevo, sendDueDailyEmail } from "./email";
 import { anomaliesOf, checkDay, cutoffAt, dayDetail, decide, openDay, rollover, type Ctx } from "./logic";
 
 export interface Env {
@@ -568,6 +569,55 @@ app.delete("/admin/admins/:email", async (c) => {
   return c.json({ ok: true });
 });
 
+// Daily order email (Brevo)
+app.get("/admin/email", (c) => c.json(publicEmailSettings(c.var.ctx.cfg)));
+
+app.put("/admin/email", async (c) => {
+  const b = await body<{ enabled?: boolean; api_key?: string; sender_email?: string; sender_name?: string; recipients?: string[] | string }>(c);
+  const list = (Array.isArray(b.recipients) ? b.recipients : String(b.recipients ?? "").split(/[\s,;]+/)).map((x) => x.trim().toLowerCase()).filter(Boolean);
+  const bad = list.filter((x) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
+  if (bad.length) fail(400, `Not a valid email: ${bad.join(", ")}`);
+  if (list.length > 50) fail(400, "At most 50 recipients");
+  const sender = String(b.sender_email ?? "").trim();
+  if (sender && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(sender)) fail(400, "Sender email is not valid");
+  const ctx = c.var.ctx;
+  const { cfg } = await updateCfg(ctx.db, (k) => {
+    const prev = k.email;
+    const enabled = !!b.enabled;
+    k.email = {
+      enabled,
+      api_key: b.api_key?.trim() ? b.api_key.trim() : prev?.api_key ?? "",
+      sender_email: sender,
+      sender_name: String(b.sender_name ?? "Mixes Order").trim().slice(0, 60) || "Mixes Order",
+      recipients: [...new Set(list)],
+      site_url: new URL(c.req.url).origin,
+      // Start with the day that is open now: imported history is never emailed.
+      since: enabled && !prev?.enabled ? ctx.open_day ?? openDay(k.settings) : prev?.since ?? ctx.open_day ?? openDay(k.settings),
+    };
+    if (enabled && (!k.email.api_key || !k.email.sender_email || !k.email.recipients.length)) fail(400, "To turn on the daily email, fill in the API key, sender email and at least one recipient.");
+  });
+  await audit(ctx.db, actor(c), "update_email", { enabled: cfg.email?.enabled, recipients: cfg.email?.recipients.length });
+  return c.json(publicEmailSettings(cfg));
+});
+
+/** Send the email for the most recent locked day (or the open day) right now. */
+app.post("/admin/email/test", async (c) => {
+  const ctx = c.var.ctx;
+  const e = ctx.cfg.email;
+  if (!e?.api_key || !e.sender_email || !e.recipients.length) fail(400, "Save the API key, sender email and recipients first.");
+  const last = await ctx.db.prepare("SELECT day FROM sheets WHERE status = 'locked' ORDER BY day DESC LIMIT 1").first<{ day: string }>();
+  const day = last?.day ?? openDay(ctx.cfg.settings);
+  const mail = await buildDailyEmail(ctx, day);
+  if (!mail) fail(404, "No order sheet to send yet.");
+  try {
+    await sendBrevo(e!, { ...mail!, subject: "[Test] " + mail!.subject });
+  } catch (err) {
+    fail(502, (err as Error).message);
+  }
+  await audit(ctx.db, actor(c), "email_test", { day, recipients: e!.recipients.length });
+  return c.json({ ok: true, day, recipients: e!.recipients });
+});
+
 app.post("/admin/rollover", async (c) => {
   c.var.ctx.open_day = null; // force a full check
   return c.json(await rollover(c.var.ctx));
@@ -657,8 +707,15 @@ export default {
       (async () => {
         await ensureSchema(env.DB);
         const { cfg, open_day } = await loadCfg(env.DB);
-        const r = await rollover({ db: env.DB, cfg, open_day });
+        const ctx: Ctx = { db: env.DB, cfg, open_day };
+        const r = await rollover(ctx);
         if (r.locked.length) console.log("Locked", r.locked, "open", r.open);
+        try {
+          const sent = await sendDueDailyEmail(ctx);
+          if (sent) console.log("Daily email sent for", sent);
+        } catch (e) {
+          console.error("Daily email failed (will retry next run):", e);
+        }
       })(),
     );
   },

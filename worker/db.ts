@@ -23,6 +23,18 @@ export interface Config {
   admins: Admin[];
   next_store_id: number;
   next_item_id: number;
+  email?: EmailSettings;
+}
+
+/** Daily order email via Brevo (https://www.brevo.com). */
+export interface EmailSettings {
+  enabled: boolean;
+  api_key: string; // never sent to the browser
+  sender_email: string; // must be a verified sender in Brevo
+  sender_name: string;
+  recipients: string[];
+  site_url: string; // for links in the email (taken from the admin's browser)
+  since: string; // only days on/after this are emailed (not imported history)
 }
 
 /** Quantities for one day. */
@@ -84,6 +96,7 @@ const SCHEMA = [
      hist TEXT NOT NULL DEFAULT '[]',
      decisions TEXT NOT NULL DEFAULT '{}',
      locked_at TEXT,
+     emailed_at TEXT,
      rev INTEGER NOT NULL DEFAULT 0,
      n_entered INTEGER NOT NULL DEFAULT 0,
      n_carried INTEGER NOT NULL DEFAULT 0,
@@ -104,6 +117,8 @@ export function ensureSchema(db: D1Database): Promise<void> {
   if (!ready) {
     ready = (async () => {
       await db.batch(SCHEMA.map((s) => db.prepare(s)));
+      const cols = (await db.prepare("PRAGMA table_info(sheets)").all<{ name: string }>()).results;
+      if (!cols.some((c) => c.name === "emailed_at")) await db.prepare("ALTER TABLE sheets ADD COLUMN emailed_at TEXT").run();
       const has = await db.prepare("SELECT 1 FROM cfg WHERE id = 1").first();
       if (!has) {
         const migrated = await migrateFromRowsPerLine(db);
