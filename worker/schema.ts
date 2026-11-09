@@ -3,6 +3,12 @@
 
 const STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
+  // Per store/item history used by the anomaly checks, computed once per order day
+  // (keeps D1 row reads low: see checkDay).
+  `CREATE TABLE IF NOT EXISTS stats_cells (
+     store_id INTEGER NOT NULL, item_id INTEGER NOT NULL, n INTEGER, avg REAL, max REAL, nonzero INTEGER,
+     PRIMARY KEY (store_id, item_id)) WITHOUT ROWID`,
+  `CREATE TABLE IF NOT EXISTS stats_items (item_id INTEGER PRIMARY KEY, avg REAL)`,
   `CREATE TABLE IF NOT EXISTS stores (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
      name TEXT NOT NULL,
@@ -40,7 +46,6 @@ const STATEMENTS = [
      updated_at TEXT,
      updated_by TEXT,
      PRIMARY KEY (day, store_id, item_id)) WITHOUT ROWID`,
-  `CREATE INDEX IF NOT EXISTS lines_store_item ON lines (store_id, item_id, day)`,
   `CREATE TABLE IF NOT EXISTS submissions (
      day TEXT NOT NULL,
      store_id INTEGER NOT NULL,
@@ -62,6 +67,9 @@ const STATEMENTS = [
      resolved_by TEXT)`,
   `CREATE INDEX IF NOT EXISTS anomalies_status ON anomalies (status, severity)`,
   `CREATE INDEX IF NOT EXISTS anomalies_day ON anomalies (day)`,
+  `CREATE INDEX IF NOT EXISTS days_status ON days (status, day)`,
+  // Every extra index doubles the rows written per order line; this one is not needed.
+  `DROP INDEX IF EXISTS lines_store_item`,
   `CREATE TABLE IF NOT EXISTS audit (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
      at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -7,14 +7,11 @@ import type { Overview } from "./AdminApp";
 
 export default function Dashboard({ overview, onChange }: { overview: Overview | null; onChange: () => void }) {
   const [day, setDay] = useState<DayDetail | null>(null);
-  const [prev, setPrev] = useState<{ day: string; critical: number; warning: number; carried: number; entered: number } | null>(null);
+  const prev = overview?.last_locked ?? null;
 
   useEffect(() => {
     if (!overview) return;
     api<DayDetail>(`/admin/days/${overview.open_day}`).then(setDay, () => setDay(null));
-    api<{ day: string; status: string; critical: number; warning: number; carried: number; entered: number }[]>("/admin/days").then((ds) =>
-      setPrev(ds.find((d) => d.status === "locked") ?? null),
-    );
   }, [overview]);
 
   if (!overview) return <div className="center-msg">Loading…</div>;
@@ -55,11 +52,11 @@ export default function Dashboard({ overview, onChange }: { overview: Overview |
         <section className="card">
           <h2>Last locked day · {formatDayLong(prev.day)}</h2>
           <p>
-            {prev.entered + prev.carried === 0 ? "Imported from the workbook." : `${prev.entered} stores submitted, ${prev.carried} copied from the previous day.`}{" "}
-            {prev.critical + prev.warning > 0 ? (
+            {(prev.entered ?? 0) + (prev.carried ?? 0) === 0 ? "Imported from the workbook." : `${prev.entered} stores submitted, ${prev.carried} copied from the previous day.`}{" "}
+            {(prev.critical ?? 0) + (prev.warning ?? 0) > 0 ? (
               <>
-                <strong className={prev.critical ? "critical-text" : "warning-text"}>
-                  {prev.critical} critical · {prev.warning} warnings
+                <strong className={(prev.critical ?? 0) > 0 ? "critical-text" : "warning-text"}>
+                  {prev.critical ?? 0} critical · {prev.warning ?? 0} warnings
                 </strong>{" "}
                 to review.
               </>
