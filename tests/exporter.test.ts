@@ -40,9 +40,16 @@ describe("Excel export", () => {
     expect(ws.getCell("B6").formula).toBe("SUM(B4:B5)"); // totals start at the FIRST store row
     expect(ws.getCell("A6").value).toBe("Total Riyadh Production");
 
-    const parsed = parseWorkbook(back);
+    const parsed = parseWorkbook(back, { keepFormulas: true });
     expect(parsed.days.map((d) => d.day)).toEqual(["2026-11-04", "2026-11-05"]);
     expect(parsed.items.find((i) => i.name.startsWith("Cookie"))?.kind).toBe("derived");
+
+    // Default import: formula columns become items the stores type, with the values shown.
+    const plain = parseWorkbook(back);
+    const cookie = plain.items.find((i) => i.name.startsWith("Cookie"))!;
+    expect(cookie).toMatchObject({ kind: "input", step: 480, code: null, source_key: null });
+    const nov05 = plain.days.find((d) => d.day === "2026-11-05")!;
+    expect(nov05.cells.find(([s, k]) => s === "SAFA-02" && k === cookie.key)?.[2]).toBe(960);
     const findings = parsed.days.flatMap((d) => d.anomalies).filter((a) => a.rule !== "hist_hardcoded");
     expect(findings).toEqual([]);
   });

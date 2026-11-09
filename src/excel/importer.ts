@@ -105,7 +105,11 @@ const colLetter = (n: number) => {
 
 const DERIVED_RE = /^\$?([A-Z]+)\$?(\d+)\s*\*\s*\$([A-Z]+)\$3$/;
 
-export function parseWorkbook(wb: ExcelJS.Workbook, opts: { year?: number; preferSheets?: string[] } = {}): ParsedWorkbook {
+/**
+ * keepFormulas: false (default) imports formula columns such as Cookie/Pecan as
+ * ordinary items that stores type themselves, using the values the sheet showed.
+ */
+export function parseWorkbook(wb: ExcelJS.Workbook, opts: { year?: number; preferSheets?: string[]; keepFormulas?: boolean } = {}): ParsedWorkbook {
   const sheets = wb.worksheets;
   // Year for sheets without a date cell: take it from the first sheet that has one.
   let year = opts.year ?? new Date().getFullYear();
@@ -121,6 +125,8 @@ export function parseWorkbook(wb: ExcelJS.Workbook, opts: { year?: number; prefe
 
   const items = new Map<string, ParsedItem>();
   const itemFractions = new Map<string, boolean>();
+  const stepHint = new Map<string, number>(); // formula columns imported as entered: step = old multiplier
+  const keepFormulas = !!opts.keepFormulas;
   const days: ParsedDay[] = [];
   const usedDays = new Map<string, string>(); // day -> sheet name
   const prefer = new Set(opts.preferSheets ?? []);
@@ -234,15 +240,16 @@ export function parseWorkbook(wb: ExcelJS.Workbook, opts: { year?: number; prefe
     for (const c of cols) {
       const prev = items.get(c.key);
       if (!derived.has(c.key) && c.row3 != null) itemByCode.set(String(c.row3), c.key);
-      const isDerived = derived.has(c.key);
+      const isDerived = keepFormulas && derived.has(c.key);
+      if (!keepFormulas && derived.has(c.key) && typeof c.row3 === "number" && c.row3 > 0) stepHint.set(c.key, c.row3);
       items.set(c.key, {
         key: c.key,
         name: c.name,
-        code: isDerived ? null : c.row3 != null ? String(c.row3) : prev?.code ?? null,
+        code: derived.has(c.key) ? null : c.row3 != null ? String(c.row3) : prev?.code ?? null,
         step: 1,
         kind: isDerived ? "derived" : "input",
         factor: isDerived ? (typeof c.row3 === "number" ? c.row3 : Number(c.row3) || 0) : null,
-        source_key: derived.get(c.key) ?? null,
+        source_key: isDerived ? derived.get(c.key) ?? null : null,
         active: 1,
       });
     }
@@ -268,6 +275,11 @@ export function parseWorkbook(wb: ExcelJS.Workbook, opts: { year?: number; prefe
           const srcVal = cellNumber(ws.getCell(sr.row, srcCol.col)).value ?? 0;
           const factor = typeof c.row3 === "number" ? c.row3 : 0;
           const expected = srcVal * factor;
+          if (!keepFormulas) {
+            // Entered item from now on: keep the value the sheet showed.
+            cells.push([sr.name, c.key, v.formula ? v.value ?? expected : v.value]);
+            continue;
+          }
           if (!v.formula) {
             const typed = v.value;
             if (typed !== expected) {
@@ -327,6 +339,7 @@ export function parseWorkbook(wb: ExcelJS.Workbook, opts: { year?: number; prefe
     if (d) d.anomalies.push({ storeName: null, itemKey: null, rule: "hist_sheet_date", severity: "warning", message: `Sheet "${sk.name}" has the same date (${sk.day}) as "${d.sheet_name}" and was not imported. You can choose which one to keep on the import screen.` });
   }
   for (const [k, frac] of itemFractions) if (frac && items.get(k)?.kind === "input") items.get(k)!.step = 0.5;
+  for (const [k, step] of stepHint) if (items.get(k)?.kind === "input") items.get(k)!.step = step;
   const latestItems = new Set(days.at(-1)?.itemKeys ?? []);
   for (const it of items.values()) it.active = latestItems.has(it.key) ? 1 : 0;
   // Order: items in the order of the latest sheet, then retired ones.

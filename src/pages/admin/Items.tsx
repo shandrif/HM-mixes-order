@@ -175,13 +175,9 @@ function ItemFields({ d, set, inputs }: { d: Draft; set: (d: Draft) => void; inp
       {d.kind === "input" ? (
         <>
           <input className="input short" placeholder="Code / SKU" value={d.code} onChange={(e) => set({ ...d, code: e.target.value })} />
-          <label className="inline">
+          <label className="inline" title="Quantities must be a multiple of this; the + / − buttons move by it (e.g. 0.5 for tubs, 480 for grams).">
             step
-            <select className="input short" value={d.step} onChange={(e) => set({ ...d, step: e.target.value })}>
-              <option value="1">1</option>
-              <option value="0.5">0.5</option>
-              <option value="0.25">0.25</option>
-            </select>
+            <input className="input short" inputMode="decimal" value={d.step} onChange={(e) => set({ ...d, step: e.target.value })} />
           </label>
         </>
       ) : (
