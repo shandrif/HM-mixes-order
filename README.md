@@ -64,6 +64,24 @@ Fixing a cell re-runs the checks for that day. Findings can also be marked fixed
 
 ---
 
+## Free-plan limits (why they cannot be reached)
+Everything runs on Cloudflare's free plan. The database (D1) allows 5,000,000 rows read and 100,000 rows written per day, so the app stores data to keep every request tiny:
+
+- **One row per day** holds every store's quantities, the anomaly findings and admin decisions. **One config row** holds settings, stores, items and admins.
+- Rows per request (measured in `tests/api.test.ts`):
+
+| Request | Rows read | Rows written |
+|---|---|---|
+| Branch list / pick branch | 1 | 0 |
+| Open the order form | 3 | 0 |
+| Send an order | 2 | 1 |
+| Automatic check after a send | ≈ 30 (one per past day) | 0–1 |
+
+- The Worker itself accepts at most 100,000 requests a day on the free plan. Even if every one of them were a store request, that is under 1 million rows read.
+- Writes are capped at 300 order sends per store per day: 70 stores × 300 = 21,000 rows, well under 100,000.
+- Admin login attempts are limited with Cloudflare's rate limiter, which writes nothing to the database.
+- Importing the whole workbook writes one row per day (150 rows for 150 sheets).
+
 ## Branding
 Colours are taken from the current workbook (gold `#D4B38B`, cream `#F5EDE3`, mint `#84C6B2`, charcoal). To apply the official HM brand:
 - Replace `public/logo.svg` with the HM logo.

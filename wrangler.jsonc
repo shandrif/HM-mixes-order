@@ -19,6 +19,8 @@
       "database_id": "b3e922e4-f750-4922-8277-e691c4c3ecd6"
     }
   ],
+  // Free Cloudflare rate limiter for login attempts (no database writes).
+  "ratelimits": [{ "name": "LOGIN_LIMIT", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }],
   // Every 15 minutes: lock days past their cutoff (18:30 Riyadh by default),
   // copy forward missing stores, run anomaly checks, open the next day.
   "triggers": { "crons": ["*/15 * * * *"] },

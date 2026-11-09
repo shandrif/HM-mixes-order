@@ -103,8 +103,8 @@ function Import({ hasData, onChange }: { hasData: boolean; onChange: () => void 
   const [prefer, setPrefer] = useState<string[]>([]);
   const [mapping, setMapping] = useState<Map<string, string | null>>(new Map());
   const [replace, setReplace] = useState(false);
-  // Cloudflare's free plan allows ~100k database writes a day; ~60 days of history fits comfortably.
-  const [keepDays, setKeepDays] = useState("60");
+  // Each day is a single database row, so even all history is a tiny import.
+  const [keepDays, setKeepDays] = useState("all");
   const [progress, setProgress] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const [done, setDone] = useState(false);
@@ -311,13 +311,12 @@ function Import({ hasData, onChange }: { hasData: boolean; onChange: () => void 
           <label className="inline">
             History to import
             <select className="input" value={keepDays} onChange={(e) => setKeepDays(e.target.value)}>
-              <option value="30">Last 30 days</option>
-              <option value="60">Last 60 days (recommended on the free plan)</option>
+              <option value="all">All {parsed.days.length} days</option>
               <option value="90">Last 90 days</option>
-              <option value="all">All {parsed.days.length} days (needs Cloudflare Workers Paid)</option>
+              <option value="60">Last 60 days</option>
+              <option value="30">Last 30 days</option>
             </select>
           </label>
-          <p className="muted small">The free Cloudflare plan allows about 100,000 database writes per day; each day of history is ~800 rows.</p>
           {hasData && (
             <label className="check notice critical">
               <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} /> Replace ALL existing data (stores, items, days, orders) with this workbook

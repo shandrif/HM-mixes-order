@@ -41,7 +41,7 @@ export type Severity = "critical" | "warning" | "info";
 export type AnomalyStatus = "open" | "resolved" | "ignored";
 
 export interface Anomaly {
-  id: number;
+  id: string; // "<day>~<a|h>~<key>"
   day: string;
   store_id: number | null;
   item_id: number | null;

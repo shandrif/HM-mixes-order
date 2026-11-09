@@ -70,31 +70,3 @@ export function timingSafeEqual(a: string, b: string): boolean {
   for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return r === 0;
 }
-
-const WINDOW = 15 * 60; // seconds
-const MAX_ATTEMPTS = 8;
-
-/** Returns false when `key` has failed too many times in the last 15 minutes. */
-export async function attemptAllowed(db: D1Database, key: string): Promise<boolean> {
-  const row = await db.prepare("SELECT count, first_at FROM login_attempts WHERE key = ?").bind(key).first<{ count: number; first_at: number }>();
-  if (!row) return true;
-  if (row.first_at + WINDOW < Date.now() / 1000) return true;
-  return row.count < MAX_ATTEMPTS;
-}
-
-export async function recordFailure(db: D1Database, key: string) {
-  const now = Math.floor(Date.now() / 1000);
-  await db
-    .prepare(
-      `INSERT INTO login_attempts (key, count, first_at) VALUES (?1, 1, ?2)
-       ON CONFLICT(key) DO UPDATE SET
-         count = CASE WHEN first_at + ${WINDOW} < ?2 THEN 1 ELSE count + 1 END,
-         first_at = CASE WHEN first_at + ${WINDOW} < ?2 THEN ?2 ELSE first_at END`,
-    )
-    .bind(key, now)
-    .run();
-}
-
-export async function clearFailures(db: D1Database, key: string) {
-  await db.prepare("DELETE FROM login_attempts WHERE key = ?").bind(key).run();
-}
