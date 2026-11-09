@@ -15,8 +15,8 @@
     {
       "binding": "DB",
       "database_name": "hm-mixes-db",
-      // Paste the Database ID from Cloudflare → Storage & Databases → D1 → hm-mixes-db
-      "database_id": "00000000-0000-0000-0000-000000000000"
+      // Cloudflare → Storage & Databases → D1 → hm-mixes-db
+      "database_id": "b3e922e4-f750-4922-8277-e691c4c3ecd6"
     }
   ],
   // Every 15 minutes: lock days past their cutoff (18:30 Riyadh by default),
