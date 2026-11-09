@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 
 const en = {
   appName: "Mixes Order",
-  chooseStore: "Choose your store",
-  searchStore: "Search store…",
+  chooseStore: "Choose your branch",
+  searchStore: "Search branch…",
   pin: "Store PIN",
   pinHelp: "4-digit PIN from your manager",
   continue: "Continue",

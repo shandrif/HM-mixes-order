@@ -19,7 +19,7 @@ export async function loadSettings(db: D1Database): Promise<{ settings: Settings
     settings: {
       cutoff: m.get("cutoff") ?? "18:30",
       tz_offset_minutes: Number(m.get("tz_offset_minutes") ?? 180),
-      require_pin: (m.get("require_pin") ?? "1") === "1",
+      require_pin: (m.get("require_pin") ?? "0") === "1",
       total_label: m.get("total_label") ?? "Total Riyadh Production",
       sheet_name_format: m.get("sheet_name_format") ?? "MMM- DD",
       history_days: Number(m.get("history_days") ?? 28),

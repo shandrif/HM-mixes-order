@@ -2,7 +2,7 @@
 
 Daily mix ordering for all HM stores, replacing the shared “Mixes Orders” Excel workbook.
 
-- **Stores** open one link, pick their branch, enter their PIN and type tomorrow’s quantities (English / العربية, works on phones).
+- **Stores** open one link, tap their branch name and type tomorrow’s quantities (English / العربية, works on phones).
 - **Every day at 6:30 PM (Riyadh)** the open sheet locks and is hidden from stores. Stores that didn’t submit get their previous day copied, anomaly checks run, and the next day opens.
 - **Admins** see every day (like the hidden sheets), fix problems, manage stores/items/formulas, and **download the workbook** in the original layout: one sheet per day, all hidden except the latest, `=J4*$K$3` formulas and SUM totals.
 
@@ -40,7 +40,7 @@ Open `https://…workers.dev/admin`. On the first visit it asks you to choose an
 2. **Excel → Import existing workbook** → choose the latest `Mixes_Orders_*.xlsx`.
 3. Review the suggestions (store spelling merges, sheets that share a date), then click **Import**.
    All sheets, including hidden ones, become history, and every day is checked for problems.
-4. **Stores → Download PIN list** and send each store its PIN. Share the main link (`https://…workers.dev`) with all stores.
+4. Share the main link (`https://…workers.dev`) with all stores.
 
 ---
 
