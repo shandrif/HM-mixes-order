@@ -64,6 +64,16 @@ Fixing a cell re-runs the checks for that day. Findings can also be marked fixed
 
 ---
 
+## Daily order email (Brevo)
+After each cutoff the locked order is emailed automatically. The email has totals per item, every branch, who was copied or missing, any likely typos, and the sheet attached as a spreadsheet (CSV, opens in Excel).
+
+1. In Brevo, create an API key: your name (top right) → **SMTP & API** → **API Keys** → **Generate a new API key**.
+2. In Brevo, make sure the sender address is verified: **Senders, Domains & Dedicated IPs** → **Senders**.
+3. In the app, go to **Admin → Settings → Daily order email**. Paste the key, enter the sender email and the recipients (one per line), then click **Save & turn on**.
+4. Click **Send test email now** to check it arrives.
+
+The cron job sends the email within 15 minutes of the cutoff, once per day; it never sends twice. If Brevo fails, the next run retries. Days imported from the workbook are never emailed. Each send costs about 3 database rows read and 1 written.
+
 ## Free-plan limits (why they cannot be reached)
 Everything runs on Cloudflare's free plan. The database (D1) allows 5,000,000 rows read and 100,000 rows written per day, so the app stores data to keep every request tiny:
 
