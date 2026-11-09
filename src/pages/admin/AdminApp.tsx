@@ -123,6 +123,14 @@ function AdminLogin({ onDone }: { onDone: (email: string) => void }) {
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [setup, setSetup] = useState<boolean | null>(null);
+  useEffect(() => {
+    api<{ needs_setup: boolean }>("/admin/setup").then(
+      (r) => setSetup(r.needs_setup),
+      () => setSetup(false),
+    );
+  }, []);
+  if (setup === null) return <div className="center-msg">Loading…</div>;
   return (
     <div className="login-page">
       <form
@@ -132,8 +140,9 @@ function AdminLogin({ onDone }: { onDone: (email: string) => void }) {
           setBusy(true);
           setErr("");
           try {
-            const r = await api<{ email: string }>("/admin/login", { body: { email, password } });
+            const r = await api<{ email: string }>(setup ? "/admin/setup" : "/admin/login", { body: { email, password } });
             onDone(r.email);
+            if (setup) navigate("/admin/excel");
           } catch (e) {
             setErr((e as Error).message);
           } finally {
@@ -145,20 +154,21 @@ function AdminLogin({ onDone }: { onDone: (email: string) => void }) {
           <img src="/logo.svg" alt="" width={40} height={40} />
           <div>
             <strong>Mixes Order</strong>
-            <small>Admin sign-in</small>
+            <small>{setup ? "Welcome — create your admin account" : "Admin sign-in"}</small>
           </div>
         </div>
+        {setup && <p className="muted">This is the first visit. Choose the email and password you will use to sign in as admin.</p>}
         <label className="field">
           <span>Email</span>
           <input className="input" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
         </label>
         <label className="field">
-          <span>Password</span>
-          <input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <span>{setup ? "New password (8+ characters)" : "Password"}</span>
+          <input className="input" type="password" autoComplete={setup ? "new-password" : "current-password"} minLength={setup ? 8 : undefined} value={password} onChange={(e) => setPassword(e.target.value)} required />
         </label>
         {err && <p className="error">{err}</p>}
         <button className="btn primary block" disabled={busy}>
-          {busy ? "Signing in…" : "Sign in"}
+          {busy ? "Please wait…" : setup ? "Create admin account" : "Sign in"}
         </button>
         <a className="btn link" href="/">
           ← Store ordering page

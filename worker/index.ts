@@ -207,6 +207,30 @@ app.post("/admin/login", async (c) => {
   return c.json({ ok: true, email });
 });
 
+// First-run setup: while no admin exists (and no ADMIN_EMAIL secret is set),
+// the first person to open /admin creates the admin account.
+const needsSetup = async (c: C) =>
+  !c.env.ADMIN_EMAIL && !(await c.var.ctx.db.prepare("SELECT 1 FROM admins LIMIT 1").first());
+
+app.get("/admin/setup", async (c) => c.json({ needs_setup: await needsSetup(c) }));
+
+app.post("/admin/setup", async (c) => {
+  if (!(await needsSetup(c))) fail(403, "Setup is already done. Please sign in.");
+  const { email: rawEmail, password } = await body<{ email: string; password: string }>(c);
+  const email = String(rawEmail ?? "").trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+$/.test(email)) fail(400, "Enter a valid email");
+  if (String(password ?? "").length < 8) fail(400, "Password must be at least 8 characters");
+  const r = await c.var.ctx.db
+    .prepare("INSERT INTO admins (email, pass_hash) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM admins)")
+    .bind(email, await hashPassword(password))
+    .run();
+  if (!r.meta.changes) fail(403, "Setup is already done. Please sign in.");
+  await audit(c.var.ctx.db, `admin:${email}`, "first_admin_setup", { email });
+  const ttl = 60 * 60 * 12;
+  setCookie(c, "hm_admin", await signSession({ kind: "admin", sub: email, exp: Math.floor(Date.now() / 1000) + ttl }, c.var.ctx.secret), cookieOpts(c, ttl));
+  return c.json({ ok: true, email });
+});
+
 app.post("/admin/logout", (c) => {
   deleteCookie(c, "hm_admin", { path: "/" });
   return c.json({ ok: true });
@@ -214,7 +238,7 @@ app.post("/admin/logout", (c) => {
 
 // Guard all other admin routes.
 app.use("/admin/*", async (c, next) => {
-  if (c.req.path === "/api/admin/login" || c.req.path === "/api/admin/logout") return next();
+  if (["/api/admin/login", "/api/admin/logout", "/api/admin/setup"].includes(c.req.path)) return next();
   const s = c.var.session;
   if (!s || s.kind !== "admin") fail(401, "Admin sign-in required");
   const exists = await c.var.ctx.db.prepare("SELECT 1 FROM admins WHERE email = ?").bind(s!.sub).first();
