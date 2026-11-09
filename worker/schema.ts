@@ -81,7 +81,7 @@ const STATEMENTS = [
 const DEFAULT_SETTINGS: Record<string, string> = {
   cutoff: "18:30",
   tz_offset_minutes: "180",
-  require_pin: "1",
+  require_pin: "0",
   total_label: "Total Riyadh Production",
   sheet_name_format: "MMM- DD",
   history_days: "28",
@@ -101,6 +101,10 @@ export function ensureSchema(db: D1Database): Promise<void> {
         ),
         db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('session_secret', ?)").bind(hex),
       ]);
+      // One-time switch: store PINs are off by default (stores just pick their branch).
+      // Admins can turn them back on under Settings.
+      const migr = await db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('migr_pin_default_off', '1')").run();
+      if (migr.meta.changes) await db.prepare("UPDATE settings SET value = '0' WHERE key = 'require_pin'").run();
     })().catch((e) => {
       ready = null;
       throw e;

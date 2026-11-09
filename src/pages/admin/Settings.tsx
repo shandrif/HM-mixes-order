@@ -42,7 +42,7 @@ export default function SettingsPage({ me, onChange }: { me: string; onChange: (
           <small className="muted">At this time the open sheet locks and the next day opens. The check runs every 15 minutes, and entries after the cutoff are always refused.</small>
         </label>
         <label className="check">
-          <input type="checkbox" checked={s.require_pin} onChange={(e) => setS({ ...s, require_pin: e.target.checked })} /> Stores must enter their PIN
+          <input type="checkbox" checked={s.require_pin} onChange={(e) => setS({ ...s, require_pin: e.target.checked })} /> Stores must enter a PIN (off = stores just pick their branch name)
         </label>
         <h2>Sheet & Excel</h2>
         <label className="field">

@@ -104,19 +104,21 @@ function Login({ lang, onDone }: { lang: "en" | "ar"; onDone: () => void }) {
     return (info?.stores ?? []).filter((s) => !needle || s.name.toLowerCase().includes(needle) || (s.name_ar ?? "").includes(needle));
   }, [info, q]);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!storeId) return;
+  const enter = async (id: number) => {
     setBusy(true);
     setErr("");
     try {
-      await api("/store/login", { body: { store_id: storeId, pin } });
+      await api("/store/login", { body: { store_id: id, pin } });
       onDone();
     } catch (e) {
       setErr((e as Error).message);
     } finally {
       setBusy(false);
     }
+  };
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (storeId) enter(storeId);
   };
 
   const selected = info?.stores.find((s) => s.id === storeId);
@@ -139,7 +141,12 @@ function Login({ lang, onDone }: { lang: "en" | "ar"; onDone: () => void }) {
               role="option"
               aria-selected={s.id === storeId}
               className={"store-option" + (s.id === storeId ? " selected" : "")}
-              onClick={() => setStoreId(s.id)}
+              disabled={busy}
+              onClick={() => {
+                setStoreId(s.id);
+                // Without PINs, tapping the branch opens its order straight away.
+                if (info && !info.require_pin) enter(s.id);
+              }}
             >
               {lang === "ar" && s.name_ar ? s.name_ar : s.name}
             </button>
@@ -164,9 +171,11 @@ function Login({ lang, onDone }: { lang: "en" | "ar"; onDone: () => void }) {
           </label>
         )}
         {err && <p className="error">{err}</p>}
-        <button className="btn primary block" disabled={!storeId || busy || (info?.require_pin && pin.length < 4)}>
-          {t.continue}
-        </button>
+        {info?.require_pin && (
+          <button className="btn primary block" disabled={!storeId || busy || pin.length < 4}>
+            {t.continue}
+          </button>
+        )}
       </form>
     </main>
   );

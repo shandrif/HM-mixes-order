@@ -7,9 +7,11 @@ export default function Stores() {
   const [showPins, setShowPins] = useState(false);
   const [draft, setDraft] = useState({ name: "", name_ar: "", region: "" });
   const [err, setErr] = useState("");
+  const [pinsOn, setPinsOn] = useState(false);
 
   const load = useCallback(() => {
     api<Store[]>("/admin/stores").then(setRows);
+    api<{ require_pin: boolean }>("/admin/settings").then((s) => setPinsOn(s.require_pin));
   }, []);
   useEffect(load, [load]);
 
@@ -54,7 +56,7 @@ export default function Stores() {
             Order here = row order in the sheet and Excel. Changes apply to today’s open sheet and every day after; locked days keep the names they had. Deactivated stores disappear from the order page but keep their history.
           </p>
         </div>
-        <div className="head-actions">
+        {pinsOn && <div className="head-actions">
           <button className="btn ghost small" onClick={() => setShowPins((v) => !v)}>
             {showPins ? "Hide PINs" : "Show PINs"}
           </button>
@@ -72,7 +74,7 @@ export default function Stores() {
           <button className="btn ghost small" onClick={downloadPins}>
             Download PIN list
           </button>
-        </div>
+        </div>}
       </header>
       {err && <p className="error">{err}</p>}
 
@@ -105,13 +107,13 @@ export default function Stores() {
               <th>Name</th>
               <th>Arabic name</th>
               <th>Region</th>
-              <th>PIN</th>
+              {pinsOn && <th>PIN</th>}
               <th></th>
             </tr>
           </thead>
           <tbody>
             {active.map((s, i) => (
-              <StoreRow key={s.id} s={s} idx={i} showPin={showPins} onSave={update} onMove={move} last={i === active.length - 1} />
+              <StoreRow key={s.id} s={s} idx={i} pinsOn={pinsOn} showPin={showPins} onSave={update} onMove={move} last={i === active.length - 1} />
             ))}
           </tbody>
         </table>
@@ -136,7 +138,7 @@ export default function Stores() {
   );
 }
 
-function StoreRow({ s, idx, showPin, onSave, onMove, last }: { s: Store; idx: number; showPin: boolean; onSave: (s: Store, p: Partial<Store>) => void; onMove: (i: number, d: -1 | 1) => void; last: boolean }) {
+function StoreRow({ s, idx, pinsOn, showPin, onSave, onMove, last }: { s: Store; idx: number; pinsOn: boolean; showPin: boolean; onSave: (s: Store, p: Partial<Store>) => void; onMove: (i: number, d: -1 | 1) => void; last: boolean }) {
   const [v, setV] = useState({ name: s.name, name_ar: s.name_ar ?? "", region: s.region ?? "", pin: s.pin ?? "" });
   const dirty = v.name !== s.name || v.name_ar !== (s.name_ar ?? "") || v.region !== (s.region ?? "") || v.pin !== (s.pin ?? "");
   return (
@@ -158,9 +160,11 @@ function StoreRow({ s, idx, showPin, onSave, onMove, last }: { s: Store; idx: nu
       <td>
         <input className="input" value={v.region} onChange={(e) => setV({ ...v, region: e.target.value })} />
       </td>
+      {pinsOn && (
       <td>
         <input className="input pin-cell" type={showPin ? "text" : "password"} inputMode="numeric" value={v.pin} onChange={(e) => setV({ ...v, pin: e.target.value.replace(/\D/g, "") })} />
       </td>
+      )}
       <td className="nowrap">
         {dirty && (
           <button className="btn small primary" onClick={() => onSave(s, { name: v.name, name_ar: v.name_ar || null, region: v.region || null, pin: v.pin || null })}>
