@@ -10,7 +10,7 @@ export default function Anomalies({ onChange }: { onChange: () => void }) {
   const [status, setStatus] = useState("open");
   const [sev, setSev] = useState<string>("");
   const [rule, setRule] = useState<string>("");
-  const [sel, setSel] = useState<Set<number>>(new Set());
+  const [sel, setSel] = useState<Set<string>>(new Set());
 
   const load = useCallback(() => {
     setRows(null);

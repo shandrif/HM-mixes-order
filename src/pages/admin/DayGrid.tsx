@@ -103,7 +103,7 @@ export default function DayGrid({ day, focus, onChange }: { day: string; focus: 
     }
   };
 
-  const setAnomaly = async (ids: number[], status: "ignored" | "resolved" | "open") => {
+  const setAnomaly = async (ids: string[], status: "ignored" | "resolved" | "open") => {
     let note: string | undefined;
     if (status === "ignored") {
       const r = prompt("Reason for ignoring (optional):", "");
