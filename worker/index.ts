@@ -22,7 +22,7 @@ import {
   type Finding,
 } from "./db";
 import { buildOrderEmail, EMAIL_RE, emailConfigured, publicEmailSettings, sendBrevo } from "./email";
-import { anomaliesOf, checkDay, cutoffAt, dayDetail, decide, openDay, rollover, type Ctx } from "./logic";
+import { anomaliesOf, checkDay, cutoffAt, dayDetail, decide, layoutOf, openDay, rollover, type Ctx } from "./logic";
 
 export interface Env {
   DB: D1Database;
@@ -106,6 +106,47 @@ app.get("/public/info", (c) => {
     server_now: nowIso(),
     require_pin: cfg.settings.require_pin,
     stores: activeStores(cfg).map((s) => ({ id: s.id, name: s.name, name_ar: s.name_ar, region: s.region })),
+  });
+});
+
+/**
+ * Read-only order sheet for the store link ("View order sheet").
+ * which=open: the sheet stores are filling now; which=last: the latest locked
+ * (reviewed) sheet. 2 rows read (config + one day).
+ */
+app.get("/public/sheet", async (c) => {
+  const { db, cfg } = c.var.ctx;
+  const od = openDay(cfg.settings);
+  const which = c.req.query("which") === "last" ? "last" : "open";
+  const row =
+    which === "open"
+      ? await db.prepare("SELECT day, status, layout, data, emailed_at FROM sheets WHERE day = ?").bind(od).first<{ day: string; status: "open" | "locked"; layout: string | null; data: string; emailed_at: string | null }>()
+      : await db.prepare("SELECT day, status, layout, data, emailed_at FROM sheets WHERE status = 'locked' AND day < ? ORDER BY day DESC LIMIT 1").bind(od).first<{ day: string; status: "open" | "locked"; layout: string | null; data: string; emailed_at: string | null }>();
+  if (!row) return c.json({ day: which === "open" ? od : null, status: which, items: [], stores: [], total_label: cfg.settings.total_label, cutoff_at: cutoffAt(cfg.settings, od), sent_at: null });
+  const layout = layoutOf(c.var.ctx, row);
+  const data = parseData(row.data);
+  const value = (sid: number, it: Layout["items"][number]): number | null => {
+    const q = data.q[sid]?.[it.id];
+    if (it.kind === "derived" && (q === undefined || q === null)) return data.sub[sid] ? (data.q[sid]?.[it.source_item_id ?? -1] ?? 0) * (it.factor ?? 0) : null;
+    return q ?? null;
+  };
+  const names = new Map(cfg.items.map((i) => [i.id, i.name_ar]));
+  const snames = new Map(cfg.stores.map((s) => [s.id, s.name_ar]));
+  return c.json({
+    day: row.day,
+    status: row.status,
+    cutoff_at: cutoffAt(cfg.settings, row.day),
+    sent_at: row.emailed_at,
+    total_label: layout.total_label,
+    items: layout.items.map((i) => ({ id: i.id, name: i.name, name_ar: names.get(i.id) ?? null, step: i.step })),
+    stores: layout.stores.map((s) => ({
+      id: s.id,
+      name: s.name,
+      name_ar: snames.get(s.id) ?? null,
+      status: data.sub[s.id]?.[0] ?? null,
+      at: data.sub[s.id]?.[1] ?? null,
+      q: layout.items.map((it) => value(s.id, it)),
+    })),
   });
 });
 

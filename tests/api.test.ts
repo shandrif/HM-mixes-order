@@ -107,6 +107,24 @@ describe("API on one-row-per-day storage", () => {
     expect(putWrites).toBeLessThanOrEqual(2);
     expect(withCheck).toBeLessThanOrEqual(40);
 
+    // Read-only sheet for the store link: no sign-in, a couple of rows read
+    const jarCopy = { ...jar };
+    for (const k of Object.keys(jar)) delete jar[k];
+    m.read = m.written = 0;
+    const sheet = (await call("/public/sheet?which=open")).json;
+    expect(m.read).toBeLessThanOrEqual(4);
+    expect(m.written).toBe(0);
+    expect(sheet.day).toBe(order.day);
+    expect(sheet.stores).toHaveLength(70);
+    const s5 = sheet.stores.find((s: { id: number }) => s.id === 5);
+    expect(s5.status).toBe("entered");
+    expect(s5.q).toEqual(Array(11).fill(2));
+    expect(sheet.stores.find((s: { id: number }) => s.id === 6).status).toBeNull();
+    expect((await call("/public/sheet?which=last")).json.day).toBeNull(); // nothing locked yet
+    // read-only: there is no write endpoint for it, and store writes still need a session
+    expect((await call("/store/order", { method: "PUT", body: { day: order.day, qty } })).status).toBe(401);
+    Object.assign(jar, jarCopy);
+
     // The order landed; resending updates it
     const again = (await call("/store/order")).json;
     expect(again.lines[order.items[0].id]).toBe(2);
