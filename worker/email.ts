@@ -75,6 +75,10 @@ export async function sendBrevo(e: EmailSettings, mail: { subject: string; html:
     try {
       const j = (await res.json()) as { message?: string };
       if (j.message) msg += `: ${j.message}`;
+      if (res.status === 401 && /key not found/i.test(j.message ?? ""))
+        msg = "Brevo doesn't recognise the saved API key (it may be incomplete, deleted, or an SMTP key). Create a new one in Brevo → Settings → SMTP & API → API Keys (it starts with “xkeysib-”), paste it in Settings → Order email and Save.";
+      else if (res.status === 401 && /ip/i.test(j.message ?? ""))
+        msg = "Brevo blocked the request because of IP restrictions. In Brevo → Settings → Security → Authorised IPs, turn off “Block unknown IP addresses” for the API (Cloudflare sends from changing IPs).";
     } catch {
       /* not JSON */
     }

@@ -74,6 +74,10 @@ describe("review and send a day", () => {
     expect((await call("/admin/days/2026-11-05/send", { recipients: "f@x.sa", filename: "a.xlsx", file_base64: "AAAA" })).status).toBe(400);
     expect((await call("/admin/email", { api_key: "xkeysib-abc123", sender_email: "orders@halfm.sa", sender_name: "HM Orders", recipients: "factory@halfm.sa\nops@halfm.sa" }, "PUT")).json).toMatchObject({ has_key: true, key_hint: "…c123", recipients: ["factory@halfm.sa", "ops@halfm.sa"] });
     expect(JSON.stringify((await call("/admin/email")).json)).not.toContain("xkeysib-abc123");
+    const smtp = await call("/admin/email", { api_key: "xsmtpsib-abc", sender_email: "orders@halfm.sa", recipients: "f@x.sa" }, "PUT");
+    expect(smtp.status).toBe(400);
+    expect(smtp.json.error).toContain("SMTP key");
+    expect((await call("/admin/email")).json.key_hint).toBe("…c123"); // unchanged
 
     // Build the file exactly like the browser does
     const detail = (await call("/admin/days/2026-11-05")).json as DayDetail;
@@ -92,7 +96,7 @@ describe("review and send a day", () => {
     brevoStatus = 401;
     const failed = await call("/admin/days/2026-11-05/send", payload);
     expect(failed.status).toBe(502);
-    expect(failed.json.error).toContain("Key not found");
+    expect(failed.json.error).toContain("doesn't recognise the saved API key");
     expect((await call("/admin/days/2026-11-05")).json.sent).toBeNull();
 
     brevoStatus = 201;
