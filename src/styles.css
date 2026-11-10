@@ -635,3 +635,13 @@ button, .btn, .m-branch, .m-step, .m-chip-btn, .admin-nav nav a { -webkit-user-s
   table.list.stack.days-table td.card-title, table.list.stack.days-table td:last-child { grid-column: 1 / -1; }
   table.list.stack.days-table td:last-child:empty, table.list.stack.days-table td:last-child:not(:has(span)) { display: none; }
 }
+
+/* iOS Safari (floating address bar) draws the page under its toolbar and keeps
+   position:fixed bars above it, so content shows through the gap below them.
+   Extend each bottom bar's background downward to fill that strip. */
+.m-bottombar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 200px; background: #fffdf9; pointer-events: none; }
+@media (max-width: 760px) {
+  .admin-nav nav::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 200px; background: #1f1a17; pointer-events: none; }
+  .admin-nav nav { background: #1f1a17; }
+}
+html { background: var(--bg); }
