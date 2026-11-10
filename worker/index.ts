@@ -623,12 +623,15 @@ const parseEmails = (v: string[] | string | undefined) => {
 
 app.put("/admin/email", async (c) => {
   const b = await body<{ api_key?: string; sender_email?: string; sender_name?: string; recipients?: string[] | string }>(c);
+  const key = b.api_key?.replace(/\s+/g, "") ?? "";
+  if (key && key.startsWith("xsmtpsib-")) fail(400, "That is a Brevo SMTP key. Use an API key instead: Brevo → Settings → SMTP & API → API Keys tab → Generate a new API key (it starts with “xkeysib-”).");
+  if (key && !key.startsWith("xkeysib-")) fail(400, "That doesn't look like a Brevo API key. It should start with “xkeysib-”. Copy it again from Brevo → Settings → SMTP & API → API Keys.");
   const recipients = parseEmails(b.recipients);
   const sender = String(b.sender_email ?? "").trim();
   if (sender && !EMAIL_RE.test(sender)) fail(400, "Sender email is not valid");
   const { cfg } = await updateCfg(c.var.ctx.db, (k) => {
     k.email = {
-      api_key: b.api_key?.trim() ? b.api_key.trim() : k.email?.api_key ?? "",
+      api_key: key || (k.email?.api_key ?? ""),
       sender_email: sender,
       sender_name: String(b.sender_name ?? "HM Mixes Order").trim().slice(0, 60) || "HM Mixes Order",
       recipients,
