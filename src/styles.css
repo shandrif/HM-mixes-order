@@ -27,6 +27,11 @@
   --override: #ffe3c2;
   --radius: 12px;
   --shadow: 0 1px 2px rgba(31, 26, 23, 0.06), 0 4px 16px rgba(31, 26, 23, 0.05);
+  /* Motion tokens (Emil Kowalski): strong custom curves, short durations */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --press: 160ms;
   --font: "Frutiger LT Arabic", "Frutiger", "Avenir Next", "IBM Plex Sans Arabic", system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: light;
 }
@@ -68,20 +73,19 @@ code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-
   font: inherit; font-weight: 600; cursor: pointer; border-radius: 10px;
   border: 1px solid var(--line); background: var(--paper); color: var(--ink);
   padding: 9px 16px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  text-decoration: none; transition: background 0.15s, border-color 0.15s, transform 0.05s;
+  text-decoration: none; transition: transform var(--press) var(--ease-out), background-color 150ms ease, border-color 150ms ease, color 150ms ease;
 }
-.btn:hover:not(:disabled) { border-color: var(--gold-soft); background: #fff; }
-.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:active:not(:disabled) { transform: scale(0.97); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
-.btn.primary:hover:not(:disabled) { background: #000; }
+
 .btn.ghost { background: transparent; }
 .btn.small { padding: 5px 10px; font-size: 0.85rem; border-radius: 8px; }
 .btn.big { padding: 14px 28px; font-size: 1.05rem; }
 .btn.block { width: 100%; }
 .btn.link { border: 0; background: none; padding: 4px 6px; color: var(--gold-deep); text-decoration: underline; text-underline-offset: 3px; }
 .btn.on-dark { color: #f4e9da; border-color: rgba(255, 255, 255, 0.25); }
-.btn.on-dark:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); }
+
 .btn:focus-visible, .input:focus-visible, a:focus-visible, button:focus-visible { outline: 3px solid var(--gold-soft); outline-offset: 2px; }
 .icon-btn { border: 1px solid var(--line); background: var(--paper); border-radius: 6px; width: 28px; height: 28px; cursor: pointer; font: inherit; }
 .icon-btn:disabled { opacity: 0.3; cursor: default; }
@@ -342,7 +346,7 @@ button, a, input { touch-action: manipulation; }
 .admin-nav { background: var(--ink); color: #fff; padding: 18px 12px; display: flex; flex-direction: column; gap: 18px; position: sticky; top: 0; height: 100vh; }
 .admin-nav nav { display: flex; flex-direction: column; gap: 2px; }
 .admin-nav nav a { color: #e8dccb; text-decoration: none; padding: 9px 12px; border-radius: 8px; display: flex; align-items: center; gap: 8px; font-weight: 600; }
-.admin-nav nav a:hover { background: rgba(255, 255, 255, 0.07); }
+
 .admin-nav nav a.active { background: var(--gold-soft); color: var(--ink); }
 .nav-foot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
 .nav-foot .muted { color: #b9ab9a; overflow: hidden; text-overflow: ellipsis; }
@@ -366,7 +370,7 @@ button, a, input { touch-action: manipulation; }
 .stat.critical { border-left: 4px solid var(--critical); }
 .stat.critical .stat-value { color: var(--critical); }
 .stat.warning { border-left: 4px solid var(--warning); }
-a.stat:hover { border-color: var(--gold-soft); }
+
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { font-size: 0.82rem; padding: 4px 10px; border-radius: 99px; background: var(--warning-soft); color: var(--warning); border: 1px solid #f3d9a4; }
 .chip.ok { background: var(--ok-soft); color: var(--ok); border-color: #bfe3cf; }
@@ -471,3 +475,105 @@ table.sheet tfoot .sticky-col { z-index: 3; background: var(--gold-soft); }
 .modal-back { position: fixed; inset: 0; z-index: 50; background: rgba(20, 16, 13, 0.45); display: grid; place-items: center; padding: 16px; }
 .modal { width: 100%; max-width: 520px; margin: 0; }
 .modal textarea { width: 100%; resize: vertical; font: inherit; }
+
+
+/* ───────── Interaction polish (Emil Kowalski design-engineering rules) ───────── */
+
+/* Hover only where a real pointer exists — touch screens fire hover on tap. */
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover:not(:disabled) { border-color: var(--gold-soft); background-color: #fff; }
+  .btn.primary:hover:not(:disabled) { background-color: #000; }
+  .btn.on-dark:hover:not(:disabled), .admin-nav nav a:hover:not(.active) { background-color: rgba(255, 255, 255, 0.08); }
+  .btn.link:hover { color: var(--ink); }
+  a.stat:hover { border-color: var(--gold-soft); transform: translateY(-1px); box-shadow: 0 6px 18px -10px rgba(31, 26, 23, 0.35); }
+  .m-branch:hover { background-color: #fbf7f1; }
+  .m-chip-btn.light:hover:not(:disabled) { border-color: var(--gold-soft); }
+  .m-step:hover:not(:disabled) { background-color: #efe3d2; }
+  table.list tbody tr:hover td { background-color: #fbf7f1; }
+  table.sheet tbody tr:hover td:not(.critical):not(.warning):not(.dirty) { box-shadow: inset 0 0 0 999px rgba(212, 179, 139, 0.12); }
+  table.sheet tbody tr:hover .sticky-col { background-color: #efe3d2; }
+  .issue-list li:hover { border-color: var(--gold-soft); }
+}
+a.stat, .issue-list li { transition: transform 200ms var(--ease-out), border-color 150ms ease, box-shadow 200ms ease; }
+.m-branch, .m-step, .m-chip-btn { transition-property: transform, background-color, border-color; }
+
+/* Every pressable confirms the press. */
+.icon-btn, .seg button, .admin-nav nav a, a.stat, .chip { transition: transform var(--press) var(--ease-out), background-color 150ms ease, color 150ms ease; }
+.icon-btn:active:not(:disabled), .seg button:active, .admin-nav nav a:active, a.stat:active { transform: scale(0.97); }
+
+/* Native-app feel: no text selection / iOS callout on long-press of controls. */
+button, .btn, .m-branch, .m-step, .m-chip-btn, .admin-nav nav a { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+/* Ripple host + ripple */
+.btn, .m-primary, .m-secondary, .m-chip-btn, .m-branch, .admin-nav nav a, a.stat, .seg button, [data-ripple] { position: relative; overflow: hidden; isolation: isolate; }
+.ripple { position: absolute; border-radius: 50%; background: currentColor; pointer-events: none; z-index: -1; will-change: transform, opacity; }
+.btn.primary .ripple, .m-primary .ripple, .admin-nav nav a .ripple { background: #fff; }
+.admin-nav nav a.active .ripple { background: var(--ink); }
+
+/* Visible, smooth keyboard focus */
+:where(button, a, input, select, textarea):focus-visible { outline: 3px solid var(--gold-soft); outline-offset: 2px; transition: outline-offset 120ms var(--ease-out); }
+
+/* iOS zooms into inputs smaller than 16px: keep them at 16px on touch screens. */
+@media (pointer: coarse) {
+  .input, select, textarea, table.sheet td input, .m-search input { font-size: 16px; }
+}
+
+/* Page change: short, so it never feels slow (tens of times a day). */
+.page-enter { animation: page-in 160ms var(--ease-out) both; }
+@keyframes page-in { from { opacity: 0; transform: translateY(4px); } }
+
+/* Store items cascade in once, 30ms apart (capped). */
+.m-items .m-item { animation: m-fade-up 260ms var(--ease-out) both; animation-delay: calc(var(--i, 0) * 30ms); }
+
+/* Bottom sheet: enter 320ms, exit faster. */
+.m-sheet-root:not(.shown) .m-sheet { transition-duration: 220ms; }
+.m-sheet-root:not(.shown) .m-backdrop { transition-duration: 200ms; }
+
+/* Admin modal: centred, from 0.96 + fade (never from scale 0). */
+.modal-back { animation: fade-in 180ms ease both; }
+.modal { animation: modal-in 220ms var(--ease-out) both; }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes modal-in { from { opacity: 0; transform: scale(0.96) translateY(6px); } }
+
+/* Last-15-minutes timer: GPU ring instead of repainting box-shadow. */
+.m-timer.urgent { animation: none; position: relative; }
+.m-timer.urgent::after { content: ""; position: absolute; inset: -3px; border-radius: 15px; border: 2px solid var(--critical); animation: ring 1.6s var(--ease-out) infinite; pointer-events: none; }
+@keyframes ring { from { opacity: 0.7; transform: scale(1); } to { opacity: 0; transform: scale(1.08); } }
+
+/* Toast exit is handled by removal; enter stays snappy. Progress bar eases. */
+
+/* Admin navigation icons */
+.admin-nav nav a { gap: 10px; }
+.nav-icon { flex: none; opacity: 0.85; }
+.admin-nav nav a.active .nav-icon { opacity: 1; }
+.nav-short { display: none; }
+
+/* Phones: admin nav becomes a thumb-reachable bottom tab bar. */
+@media (max-width: 760px) {
+  .admin-nav { position: sticky; top: 0; z-index: 30; flex-direction: row; align-items: center; justify-content: space-between; padding: 10px 14px; gap: 10px; }
+  .admin-nav .brand small { display: none; }
+  .admin-nav .nav-foot { margin: 0; flex-direction: row; gap: 8px; }
+  .admin-nav .nav-foot .muted { display: none; }
+  .admin-nav nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; flex-direction: row; justify-content: space-around; gap: 0;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px)); overflow: visible;
+    background: rgba(31, 26, 23, 0.96); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(212, 179, 139, 0.35);
+  }
+  .admin-nav nav a { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 2px; padding: 6px 2px; border-radius: 10px; font-size: 10.5px; font-weight: 600; color: #cdbfae; }
+  .admin-nav nav a.active { background: transparent; color: var(--gold-soft); }
+  .admin-nav nav a.active .nav-icon { transform: translateY(-1px); }
+  .nav-label { display: none; }
+  .nav-short { display: block; white-space: nowrap; }
+  .admin-nav nav .badge { position: absolute; top: 2px; left: calc(50% + 4px); margin: 0; font-size: 9.5px; min-width: 17px; padding: 0 4px; }
+  .admin-main { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+  .save-bar { bottom: calc(70px + env(safe-area-inset-bottom, 0px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Fewer, gentler animations: keep fades, drop movement. */
+  .page-enter, .m-items .m-item, .modal { animation-name: fade-in; }
+  .m-timer.urgent::after { animation: none; }
+  .btn:active, .icon-btn:active, .seg button:active, .admin-nav nav a:active, a.stat:active, a.stat:hover { transform: none; }
+}
+.m-items .m-item.shake { animation: m-shake 420ms var(--ease-out); animation-delay: 0ms; }

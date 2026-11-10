@@ -390,7 +390,7 @@ function OrderForm({ data, lang, toast, onReload, onSwitch }: { data: OrderData;
           </div>
 
           <div className="m-items">
-            {inputs.map((it) => {
+            {inputs.map((it, idx) => {
               const v = num(it.id);
               const last = data.last[it.id];
               const changed = submittedAt && (vals[it.id] ?? "") !== (saved[it.id] ?? "");
@@ -401,6 +401,7 @@ function OrderForm({ data, lang, toast, onReload, onSwitch }: { data: OrderData;
                     rowRefs.current[it.id] = el;
                   }}
                   className={["m-item", v === null ? "empty" : "", missing === it.id ? "shake" : "", isHigh(v, last) ? "high" : ""].join(" ")}
+                  style={{ "--i": Math.min(idx, 10) } as React.CSSProperties}
                 >
                   <div className="m-item-text">
                     <span className="m-item-name">
