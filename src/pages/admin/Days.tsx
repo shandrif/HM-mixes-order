@@ -42,7 +42,7 @@ export default function Days() {
         </label>
       </div>
       <div className="table-wrap card flush">
-        <table className="list">
+        <table className="list stack days-table">
           <thead>
             <tr>
               <th>Date</th>
@@ -56,16 +56,16 @@ export default function Days() {
           <tbody>
             {list.map((r) => (
               <tr key={r.day}>
-                <td>
+                <td className="card-title">
                   <Link to={`/admin/day/${r.day}`}>{formatDayLong(r.day)}</Link>
                 </td>
-                <td className="mono">{r.sheet_name}</td>
-                <td>
+                <td className="mono" data-label="Sheet">{r.sheet_name}</td>
+                <td data-label="Status">
                   {r.status === "open" ? <span className="pill open">Open</span> : <span className="pill locked" title={r.locked_at ? `Locked ${fmtDateTime(r.locked_at)}` : ""}>Locked</span>}
                 </td>
-                <td className="num">{r.entered}</td>
-                <td className="num">{r.carried}</td>
-                <td>
+                <td className="num" data-label="Submitted">{r.entered}</td>
+                <td className="num" data-label="Copied">{r.carried}</td>
+                <td data-label="Open issues">
                   {r.critical > 0 && <span className="sev critical">{r.critical} critical</span>} {r.warning > 0 && <span className="sev warning">{r.warning} warning</span>}{" "}
                   {r.info > 0 && <span className="sev info">{r.info} info</span>}
                 </td>

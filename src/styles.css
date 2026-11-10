@@ -577,3 +577,61 @@ button, .btn, .m-branch, .m-step, .m-chip-btn, .admin-nav nav a { -webkit-user-s
   .btn:active, .icon-btn:active, .seg button:active, .admin-nav nav a:active, a.stat:active, a.stat:hover { transform: none; }
 }
 .m-items .m-item.shake { animation: m-shake 420ms var(--ease-out); animation-delay: 0ms; }
+
+/* ───────── Phone layout fixes ───────── */
+/* The day sheet scrolls inside its own box instead of widening the page. */
+.grid-layout > * { min-width: 0; }
+@media (max-width: 1100px) { .grid-layout { grid-template-columns: minmax(0, 1fr); } }
+.toolbar .input { min-width: 0; max-width: 100%; }
+.page, .admin-main { min-width: 0; overflow-x: clip; }
+
+@media (max-width: 760px) {
+  .toolbar > .input, .toolbar > select.input { flex: 1 1 100%; }
+  .seg { width: 100%; }
+  .seg button { flex: 1; padding: 9px 6px; }
+  .page-head h1 { font-size: 1.35rem; }
+  .head-actions { width: 100%; }
+  .send-bar .head-actions .btn { flex: 1; }
+  .sheet-wrap { max-height: 62vh; border-radius: 12px; }
+  table.sheet td input { min-width: 56px; padding: 10px 2px; }
+  .issues { padding: 14px; }
+  .legend { display: none; }
+  .add-row { flex-direction: column; align-items: stretch; }
+  .add-row .input, .add-row .btn { width: 100%; }
+  .item-fields > * { flex: 1 1 100%; }
+  .item-fields .inline { justify-content: space-between; }
+  .item-fields .inline .input { flex: 1; width: auto; }
+
+  /* Tables become cards on phones */
+  .table-wrap.card.flush:has(> table.stack) { background: transparent; border: 0; box-shadow: none; overflow: visible; }
+  table.list.stack, table.list.stack tbody, table.list.stack tr, table.list.stack td { display: block; width: 100%; }
+  table.list.stack thead { display: none; }
+  table.list.stack tr {
+    position: relative; background: var(--paper); border: 1px solid var(--line); border-radius: 14px;
+    padding: 10px 14px; margin-bottom: 10px; box-shadow: var(--shadow);
+  }
+  table.list.stack td { border: 0; padding: 4px 0; text-align: start; background: transparent !important; }
+  table.list.stack td[data-label]::before {
+    content: attr(data-label); display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 2px;
+  }
+  table.list.stack td.num { text-align: start; }
+  table.list.stack td.card-title { font-weight: 700; font-size: 1.02rem; padding-bottom: 6px; }
+  table.list.stack td.row-move { position: absolute; top: 8px; inset-inline-end: 10px; width: auto; display: flex; gap: 6px; }
+  table.list.stack td.row-move::before { display: none; }
+  table.list.stack td.row-move + td { padding-inline-end: 80px; }
+  table.list.stack td.row-actions { display: flex; gap: 8px; justify-content: flex-end; padding-top: 10px; border-top: 1px solid var(--line); margin-top: 6px; }
+  table.list.stack .icon-btn { width: 36px; height: 36px; }
+  table.list.stack td.card-check { position: absolute; top: 12px; inset-inline-end: 12px; width: auto; }
+  table.list.stack td.card-check input { width: 20px; height: 20px; }
+  table.list.stack td.card-inline { display: inline-block; width: auto; margin-inline-end: 8px; padding: 0 0 4px; }
+  table.list.stack td.card-strong { font-weight: 700; }
+  table.list.stack td.card-body { padding-inline-end: 4px; }
+  table.list.stack td.card-link a { display: inline-block; padding: 6px 0; font-weight: 600; }
+}
+@media (max-width: 760px) {
+  table.list.stack.days-table tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 10px; }
+  table.list.stack.days-table td { width: auto; }
+  table.list.stack.days-table td.card-title, table.list.stack.days-table td:last-child { grid-column: 1 / -1; }
+  table.list.stack.days-table td:last-child:empty, table.list.stack.days-table td:last-child:not(:has(span)) { display: none; }
+}
