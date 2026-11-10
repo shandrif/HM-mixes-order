@@ -80,7 +80,7 @@ export default function Items() {
       </form>
 
       <div className="table-wrap card flush">
-        <table className="list edit">
+        <table className="list edit stack">
           <thead>
             <tr>
               <th>#</th>
@@ -133,7 +133,7 @@ function ItemRow({ it, idx, last, inputs, onSave, onMove }: { it: Item; idx: num
   const dirty = JSON.stringify(d) !== JSON.stringify(fromItem(it));
   return (
     <tr>
-      <td className="nowrap">
+      <td className="nowrap row-move" data-label="Column order">
         <button className="icon-btn" disabled={idx === 0} onClick={() => onMove(idx, -1)} aria-label="Move left">
           ↑
         </button>
@@ -141,12 +141,12 @@ function ItemRow({ it, idx, last, inputs, onSave, onMove }: { it: Item; idx: num
           ↓
         </button>
       </td>
-      <td>
+      <td data-label="Item">
         <div className="item-fields">
           <ItemFields d={d} set={setD} inputs={inputs} />
         </div>
       </td>
-      <td className="nowrap">
+      <td className="nowrap row-actions">
         {dirty && (
           <button className="btn small primary" onClick={() => onSave(it.id, d)}>
             Save

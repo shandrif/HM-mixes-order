@@ -98,7 +98,7 @@ export default function Anomalies({ onChange }: { onChange: () => void }) {
         <div className="center-msg">Loading…</div>
       ) : (
         <div className="table-wrap card flush">
-          <table className="list">
+          <table className="list stack">
             <thead>
               <tr>
                 <th>
@@ -119,7 +119,7 @@ export default function Anomalies({ onChange }: { onChange: () => void }) {
             <tbody>
               {list.slice(0, 500).map((r) => (
                 <tr key={r.id}>
-                  <td>
+                  <td className="card-check">
                     <input
                       type="checkbox"
                       aria-label="Select"
@@ -134,16 +134,16 @@ export default function Anomalies({ onChange }: { onChange: () => void }) {
                       }
                     />
                   </td>
-                  <td>
+                  <td className="card-inline">
                     <span className={"sev " + r.severity}>{r.severity}</span>
                   </td>
-                  <td className="nowrap">{shortDay(r.day)}</td>
-                  <td title={RULES[r.rule]?.help}>{RULES[r.rule]?.label ?? r.rule}</td>
-                  <td>
+                  <td className="nowrap card-inline">{shortDay(r.day)}</td>
+                  <td className="card-inline card-strong" title={RULES[r.rule]?.help}>{RULES[r.rule]?.label ?? r.rule}</td>
+                  <td className="card-body">
                     {r.message}
                     {r.note && <div className="muted small">Note: {r.note}</div>}
                   </td>
-                  <td>
+                  <td className="card-link">
                     <Link to={`/admin/day/${r.day}${r.store_id != null && r.item_id != null ? `?focus=${r.store_id}:${r.item_id}` : ""}`}>Open</Link>
                   </td>
                 </tr>

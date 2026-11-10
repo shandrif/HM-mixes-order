@@ -100,7 +100,7 @@ export default function Stores() {
       </form>
 
       <div className="table-wrap card flush">
-        <table className="list edit">
+        <table className="list edit stack">
           <thead>
             <tr>
               <th>#</th>
@@ -143,7 +143,7 @@ function StoreRow({ s, idx, pinsOn, showPin, onSave, onMove, last }: { s: Store;
   const dirty = v.name !== s.name || v.name_ar !== (s.name_ar ?? "") || v.region !== (s.region ?? "") || v.pin !== (s.pin ?? "");
   return (
     <tr>
-      <td className="nowrap">
+      <td className="nowrap row-move" data-label="Order">
         <button className="icon-btn" disabled={idx === 0} onClick={() => onMove(idx, -1)} aria-label="Move up">
           ↑
         </button>
@@ -151,21 +151,21 @@ function StoreRow({ s, idx, pinsOn, showPin, onSave, onMove, last }: { s: Store;
           ↓
         </button>
       </td>
-      <td>
+      <td data-label="Name">
         <input className="input" value={v.name} onChange={(e) => setV({ ...v, name: e.target.value })} />
       </td>
-      <td>
+      <td data-label="Arabic name">
         <input className="input" dir="rtl" value={v.name_ar} onChange={(e) => setV({ ...v, name_ar: e.target.value })} />
       </td>
-      <td>
+      <td data-label="Region">
         <input className="input" value={v.region} onChange={(e) => setV({ ...v, region: e.target.value })} />
       </td>
       {pinsOn && (
-      <td>
+      <td data-label="PIN">
         <input className="input pin-cell" type={showPin ? "text" : "password"} inputMode="numeric" value={v.pin} onChange={(e) => setV({ ...v, pin: e.target.value.replace(/\D/g, "") })} />
       </td>
       )}
-      <td className="nowrap">
+      <td className="nowrap row-actions">
         {dirty && (
           <button className="btn small primary" onClick={() => onSave(s, { name: v.name, name_ar: v.name_ar || null, region: v.region || null, pin: v.pin || null })}>
             Save
