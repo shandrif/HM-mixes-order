@@ -23,7 +23,22 @@ export interface Attachment {
 }
 
 /** Short branded email body; the full order is in the attached Excel file. */
-export async function buildOrderEmail(ctx: Ctx, day: string, note: string, sentBy: string): Promise<{ subject: string; html: string } | null> {
+/**
+ * Links in emails only when the app runs on your own domain: spam filters
+ * distrust links to free *.workers.dev / *.pages.dev hosts (often used for phishing).
+ */
+export function linkableSite(siteUrl: string | undefined): string | null {
+  if (!siteUrl) return null;
+  try {
+    const u = new URL(siteUrl);
+    if (/\.(workers|pages)\.dev$/i.test(u.hostname) || u.hostname === "localhost") return null;
+    return u.origin;
+  } catch {
+    return null;
+  }
+}
+
+export async function buildOrderEmail(ctx: Ctx, day: string, note: string, sentBy: string): Promise<{ subject: string; html: string; text: string } | null> {
   const row = await ctx.db.prepare("SELECT status, layout, data FROM sheets WHERE day = ?").bind(day).first<{ status: "open" | "locked"; layout: string | null; data: string }>();
   if (!row) return null;
   const layout: Layout = layoutOf(ctx, row);
@@ -36,7 +51,7 @@ export async function buildOrderEmail(ctx: Ctx, day: string, note: string, sentB
   const totals = layout.items.map((it) => layout.stores.reduce((a, s) => a + value(s.id, it), 0));
   const ordered = layout.stores.filter((s) => data.sub[s.id]).length;
   const dayLong = formatDayLong(day);
-  const site = ctx.cfg.email?.site_url?.replace(/\/$/, "");
+  const site = linkableSite(ctx.cfg.email?.site_url);
 
   const td = "padding:7px 12px;border-bottom:1px solid #eee3d6;font-size:14px";
   const html = `<!doctype html><html><body style="margin:0;background:#f7f2ea;font-family:Arial,Helvetica,sans-serif;color:#1f1a17">
@@ -54,11 +69,22 @@ export async function buildOrderEmail(ctx: Ctx, day: string, note: string, sentB
   </table>
   <p style="font-size:12px;color:#7a6f66;margin-top:18px">Sent from HM Mixes Order${site ? ` · <a href="${esc(site)}/admin/day/${day}" style="color:#8a6431">open in the app</a>` : ""}.</p>
 </div></body></html>`;
-  return { subject: `HM Mixes order — delivery ${dayLong}`, html };
+  const text = [
+    `HM Mixes order — delivery ${dayLong}`,
+    `${ordered} of ${layout.stores.length} branches · reviewed and sent by ${sentBy}`,
+    note ? `\nNote: ${note}` : "",
+    "\nProduction totals:",
+    ...layout.items.map((it, i) => `- ${it.name}: ${fmt(totals[i])}`),
+    "\nThe full order for every branch is in the attached Excel file.",
+    site ? `Open in the app: ${site}/admin/day/${day}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  return { subject: `HM Mixes order — delivery ${dayLong}`, html, text };
 }
 
 /** Send through Brevo. Throws with Brevo's message on failure. */
-export async function sendBrevo(e: EmailSettings, mail: { subject: string; html: string; to: string[]; attachments?: Attachment[] }): Promise<string | null> {
+export async function sendBrevo(e: EmailSettings, mail: { subject: string; html: string; text?: string; to: string[]; attachments?: Attachment[] }): Promise<string | null> {
   const res = await fetch(BREVO_URL, {
     method: "POST",
     headers: { "api-key": e.api_key, "content-type": "application/json", accept: "application/json" },
@@ -67,6 +93,7 @@ export async function sendBrevo(e: EmailSettings, mail: { subject: string; html:
       to: mail.to.map((email) => ({ email })),
       subject: mail.subject,
       htmlContent: mail.html,
+      textContent: mail.text ?? mail.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
       ...(mail.attachments?.length ? { attachment: mail.attachments } : {}),
     }),
   });
