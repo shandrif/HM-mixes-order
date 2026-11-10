@@ -22,15 +22,24 @@ export interface Overview {
   last_locked: { day: string; entered: number | null; carried: number | null; critical: number | null; warning: number | null; sent_at: string | null } | null;
 }
 
+// [path, label, short label for the phone tab bar, icon]
 const NAV = [
-  ["/admin", "Today"],
-  ["/admin/days", "All days"],
-  ["/admin/anomalies", "Anomalies"],
-  ["/admin/stores", "Stores"],
-  ["/admin/items", "Items"],
-  ["/admin/excel", "Excel"],
-  ["/admin/settings", "Settings"],
+  ["/admin", "Today", "Today", "M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"],
+  ["/admin/days", "All days", "Days", "M4 6h16M4 6v14h16V6M4 6V4m16 2V4M8 3v4m8-4v4M4 11h16"],
+  ["/admin/anomalies", "Anomalies", "Issues", "M12 3l9.5 17h-19zM12 10v4m0 3v.01"],
+  ["/admin/stores", "Stores", "Stores", "M4 10l1.5-5h13L20 10M4 10v10h16V10M4 10h16M9 20v-5h6v5"],
+  ["/admin/items", "Items", "Items", "M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"],
+  ["/admin/excel", "Excel", "Excel", "M6 3h9l4 4v14H6zM14 3v5h5M9 13l4 5m0-5l-4 5"],
+  ["/admin/settings", "Settings", "Settings", "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7.4 19.6l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3.5 14H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 7.4l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 10 3.1V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1.3z"],
 ] as const;
+
+function NavIcon({ d }: { d: string }) {
+  return (
+    <svg className="nav-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={d} />
+    </svg>
+  );
+}
 
 export default function AdminApp() {
   const [me, setMe] = useState<string | null | undefined>(undefined);
@@ -84,11 +93,13 @@ export default function AdminApp() {
           </div>
         </div>
         <nav>
-          {NAV.map(([to, label]) => {
+          {NAV.map(([to, label, short, icon]) => {
             const active = to === "/admin" ? path === "/admin" || path === "/admin/" : path.startsWith(to);
             return (
-              <Link key={to} to={to} className={active ? "active" : ""}>
-                {label}
+              <Link key={to} to={to} className={active ? "active" : ""} aria-current={active ? "page" : undefined} title={label}>
+                <NavIcon d={icon} />
+                <span className="nav-label">{label}</span>
+                <span className="nav-short">{short}</span>
                 {to === "/admin/anomalies" && (crit > 0 || warn > 0) && (
                   <span className={"badge " + (crit ? "critical" : "warning")} title={`${crit} critical, ${warn} warnings`}>
                     {crit || warn}
@@ -114,7 +125,11 @@ export default function AdminApp() {
           </button>
         </div>
       </aside>
-      <main className="admin-main">{page}</main>
+      <main className="admin-main">
+        <div className="page-enter" key={path}>
+          {page}
+        </div>
+      </main>
     </div>
   );
 }
