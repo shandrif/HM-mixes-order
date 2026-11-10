@@ -53,32 +53,62 @@ export async function buildOrderEmail(ctx: Ctx, day: string, note: string, sentB
   const dayLong = formatDayLong(day);
   const site = linkableSite(ctx.cfg.email?.site_url);
 
-  const td = "padding:7px 12px;border-bottom:1px solid #eee3d6;font-size:14px";
-  const html = `<!doctype html><html><body style="margin:0;background:#f7f2ea;font-family:Arial,Helvetica,sans-serif;color:#1f1a17">
-<div style="max-width:640px;margin:0 auto;padding:24px 16px">
-  <div style="background:#1f1a17;border-radius:14px;padding:20px 22px;border-bottom:4px solid #d4b38b">
+  // The whole order sheet, styled like the Excel file. Shared styles live in a
+  // <style> block (kept small: Gmail clips emails over ~102 KB).
+  const statusOf = (sid: number) => data.sub[sid]?.[0] ?? null;
+  const rows = layout.stores
+    .map((st, i) => {
+      const status = statusOf(st.id);
+      const vals = layout.items
+        .map((it) => {
+          const v = status ? value(st.id, it) : null;
+          return v ? `<td>${fmt(v)}</td>` : `<td class=z>${status ? "–" : ""}</td>`;
+        })
+        .join("");
+      const tag = status === "carried_forward" ? " <i>(copied)</i>" : !status ? " <i class=n>(no order)</i>" : "";
+      return `<tr${i % 2 ? " class=a" : ""}><th>${esc(st.name)}${tag}</th>${vals}</tr>`;
+    })
+    .join("");
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+.s{border-collapse:collapse;background:#fff;min-width:100%;font-family:Arial,Helvetica,sans-serif}
+.s td,.s th{border:1px solid #e7ddd0;padding:6px 8px;font-size:12px;text-align:center;white-space:nowrap;color:#1f1a17}
+.s tbody th{text-align:left;font-weight:bold;padding:6px 10px}
+.s tr.a td,.s tr.a th{background:#f5ede3}
+.s td.z{color:#b9ab9a}
+.s i{font-style:normal;font-weight:normal;font-size:10px;color:#3b5b8c}
+.s i.n{color:#b42318}
+.s thead th{background:#84c6b2;font-size:11px;vertical-align:bottom;min-width:64px;white-space:normal;border-color:#cfe6dd}
+.s tfoot td{background:#cda371;font-weight:bold;font-size:13px;border-color:#c49a5c}
+</style></head><body style="margin:0;background:#f7f2ea;font-family:Arial,Helvetica,sans-serif;color:#1f1a17">
+<div style="max-width:1200px;margin:0 auto;padding:20px 12px">
+  <div style="background:#1f1a17;border-radius:14px;padding:18px 20px;border-bottom:4px solid #d4b38b">
     <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#d4b38b;font-weight:bold">HM · Mixes order</div>
-    <div style="font-size:24px;font-weight:bold;color:#fff;margin-top:6px">Delivery ${esc(dayLong)}</div>
+    <div style="font-size:22px;font-weight:bold;color:#fff;margin-top:6px">Delivery ${esc(dayLong)}</div>
     <div style="font-size:13px;color:#d9cdbd;margin-top:4px">${ordered} of ${layout.stores.length} branches · reviewed and sent by ${esc(sentBy)}</div>
   </div>
-  ${note ? `<div style="background:#fff;border:1px solid #e7ddd0;border-left:4px solid #d4b38b;border-radius:10px;padding:12px 16px;margin:16px 0;font-size:14px;white-space:pre-wrap">${esc(note)}</div>` : ""}
-  <p style="font-size:14px;margin:18px 0 8px">The full order for every branch is in the attached Excel file. Production totals:</p>
-  <table style="border-collapse:collapse;width:100%;background:#fff;border-radius:10px;overflow:hidden">
-    <tr><th style="text-align:left;padding:8px 12px;background:#84c6b2;font-size:12px;text-transform:uppercase;letter-spacing:.05em">Item</th><th style="text-align:right;padding:8px 12px;background:#84c6b2;font-size:12px;text-transform:uppercase;letter-spacing:.05em">Total</th></tr>
-    ${layout.items.map((it, i) => `<tr><td style="${td}">${esc(it.name)}</td><td style="${td};text-align:right;font-weight:bold">${fmt(totals[i])}</td></tr>`).join("")}
-  </table>
-  <p style="font-size:12px;color:#7a6f66;margin-top:18px">Sent from HM Mixes Order${site ? ` · <a href="${esc(site)}/admin/day/${day}" style="color:#8a6431">open in the app</a>` : ""}.</p>
+  ${note ? `<div style="background:#fff;border:1px solid #e7ddd0;border-left:4px solid #d4b38b;border-radius:10px;padding:12px 16px;margin:14px 0 0;font-size:14px;white-space:pre-wrap">${esc(note)}</div>` : ""}
+  <div style="overflow-x:auto;margin-top:14px">
+    <table class=s cellspacing=0 cellpadding=0>
+      <thead><tr><th style="text-align:left;min-width:150px">Branch</th>${layout.items.map((it) => `<th>${esc(it.name)}</th>`).join("")}</tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td style="text-align:left">${esc(layout.total_label)}</td>${totals.map((t) => `<td>${fmt(t)}</td>`).join("")}</tr></tfoot>
+    </table>
+  </div>
+  <p style="font-size:12px;color:#7a6f66;margin-top:14px">The same sheet is attached as an Excel file (with a factory production summary).${site ? ` <a href="${esc(site)}/admin/day/${day}" style="color:#8a6431">Open in the app</a>.` : ""}</p>
 </div></body></html>`;
+  const pad = (v: string, n: number) => (v.length >= n ? v.slice(0, n) : v + " ".repeat(n - v.length));
   const text = [
     `HM Mixes order — delivery ${dayLong}`,
     `${ordered} of ${layout.stores.length} branches · reviewed and sent by ${sentBy}`,
     note ? `\nNote: ${note}` : "",
-    "\nProduction totals:",
-    ...layout.items.map((it, i) => `- ${it.name}: ${fmt(totals[i])}`),
-    "\nThe full order for every branch is in the attached Excel file.",
+    "",
+    [pad("Branch", 24), ...layout.items.map((it) => it.name)].join(" | "),
+    ...layout.stores.map((st) => [pad(st.name, 24), ...layout.items.map((it) => (statusOf(st.id) ? fmt(value(st.id, it)) || "0" : "-"))].join(" | ")),
+    [pad(layout.total_label, 24), ...totals.map((t) => fmt(t))].join(" | "),
+    "\nThe same sheet is attached as an Excel file.",
     site ? `Open in the app: ${site}/admin/day/${day}` : "",
   ]
-    .filter(Boolean)
+    .filter((l) => l !== null)
     .join("\n");
   return { subject: `HM Mixes order — delivery ${dayLong}`, html, text };
 }
