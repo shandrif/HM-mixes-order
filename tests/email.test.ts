@@ -36,6 +36,12 @@ beforeAll(async () => {
   proxy = await getPlatformProxy<{ DB: D1Database }>({ persist: { path: mkdtempSync(join(tmpdir(), "hm-send-")) } });
   env = { DB: proxy.env.DB, ASSETS: {} as Fetcher };
   vi.stubGlobal("fetch", async (url: string | Request, init?: RequestInit) => {
+    if (String(url).startsWith("https://api.brevo.com/v3/smtp/statistics/events")) {
+      return new Response(JSON.stringify({ events: [
+        { email: "factory@halfm.sa", date: "2026-11-10T16:00:00Z", subject: "HM Mixes order", event: "blocked", reason: "sender not verified", from: "orders@halfm.sa" },
+        { email: "x@y.z", date: "2026-11-10T15:00:00Z", subject: "Other app", event: "delivered", from: "someone@else.com" },
+      ] }), { status: 200 });
+    }
     if (String(url).startsWith("https://api.brevo.com")) {
       brevo.push({ headers: init!.headers as Record<string, string>, body: JSON.parse(String(init!.body)) });
       return new Response(brevoStatus === 201 ? '{"messageId":"x"}' : '{"message":"Key not found"}', { status: brevoStatus });
@@ -100,6 +106,8 @@ describe("review and send a day", () => {
     expect((await call("/admin/days/2026-11-05")).json.sent).toBeNull();
 
     brevoStatus = 201;
+    const ev = (await call("/admin/email/events")).json;
+    expect(ev.events).toEqual([expect.objectContaining({ email: "factory@halfm.sa", event: "blocked", reason: "sender not verified" })]); // other senders filtered out
     const ok = await call("/admin/days/2026-11-05/send", payload);
     expect(ok.status).toBe(200);
     expect((await call("/admin/days/2026-11-05")).json.sent).toMatchObject({ by: "owner@halfm.sa" });

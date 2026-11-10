@@ -197,8 +197,8 @@ function EmailSection() {
     setBusy(true);
     setMsg(null);
     try {
-      const r = await api<{ recipients: string[] }>("/admin/email/test", { body: {} });
-      setMsg({ ok: true, text: `Test email sent to ${r.recipients.join(", ")}. Check the inbox (and spam).` });
+      const r = await api<{ recipients: string[]; sender: string }>("/admin/email/test", { body: {} });
+      setMsg({ ok: true, text: `Brevo accepted the test email from ${r.sender} to ${r.recipients.join(", ")}. Check the inbox and spam — and “Delivery status” below in a minute.` });
     } catch (err) {
       setMsg({ ok: false, text: (err as Error).message });
     } finally {
@@ -261,6 +261,97 @@ function EmailSection() {
           Send test email
         </button>
       </div>
+      {ready && <DeliveryStatus />}
     </form>
   );
 }
+
+interface DeliveryEvent {
+  date: string;
+  email: string;
+  subject: string;
+  event: string;
+  reason: string | null;
+}
+
+const EVENT_INFO: Record<string, { label: string; tone: "ok" | "warn" | "bad" | "info"; help: string }> = {
+  requests: { label: "Accepted", tone: "info", help: "Brevo accepted it and is sending." },
+  delivered: { label: "Delivered", tone: "ok", help: "Reached the recipient's mail server. If it's not in the inbox, check Spam / Junk (Outlook: also Quarantine)." },
+  opened: { label: "Opened", tone: "ok", help: "The recipient opened it." },
+  uniqueOpened: { label: "Opened", tone: "ok", help: "The recipient opened it." },
+  clicks: { label: "Clicked", tone: "ok", help: "A link was clicked." },
+  deferred: { label: "Delayed", tone: "warn", help: "The receiving server delayed it; Brevo keeps retrying." },
+  softBounces: { label: "Soft bounce", tone: "warn", help: "Temporary problem at the recipient (mailbox full, server busy)." },
+  hardBounces: { label: "Bounced", tone: "bad", help: "The address doesn't exist or permanently refuses mail. Check the spelling." },
+  blocked: { label: "Blocked", tone: "bad", help: "Brevo didn't send it — often because the address bounced before, or the sender/domain isn't verified." },
+  spam: { label: "Marked spam", tone: "bad", help: "The recipient marked it as spam." },
+  invalid: { label: "Invalid address", tone: "bad", help: "The email address is not valid." },
+  error: { label: "Error", tone: "bad", help: "Brevo could not send it." },
+  unsubscribed: { label: "Unsubscribed", tone: "warn", help: "The recipient unsubscribed." },
+};
+
+function DeliveryStatus() {
+  const [rows, setRows] = useState<DeliveryEvent[] | null>(null);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const load = async () => {
+    setBusy(true);
+    setErr("");
+    try {
+      setRows((await api<{ events: DeliveryEvent[] }>("/admin/email/events")).events);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  // Latest event per email+subject is what matters.
+  const latest = (() => {
+    const seen = new Set<string>();
+    return (rows ?? []).filter((r) => {
+      const k = r.email + "|" + r.subject;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  })();
+  return (
+    <div className="delivery">
+      <div className="row-between">
+        <h3>Delivery status (last 7 days)</h3>
+        <button type="button" className="btn ghost small" onClick={load} disabled={busy}>
+          {busy ? "Checking…" : rows ? "Refresh" : "Check delivery status"}
+        </button>
+      </div>
+      {err && <p className="error">{err}</p>}
+      {rows && latest.length === 0 && (
+        <p className="notice">
+          Brevo has no record of any email from this sender in the last 7 days. If “Send test email” said it was accepted, wait a minute and refresh. If it stays empty, the sender address in Brevo may differ from the one saved here.
+        </p>
+      )}
+      {latest.length > 0 && (
+        <ul className="delivery-list">
+          {latest.map((r, i) => {
+            const info = EVENT_INFO[r.event] ?? { label: r.event, tone: "info" as const, help: "" };
+            return (
+              <li key={i} className={"tone-" + info.tone}>
+                <div className="row-between">
+                  <strong>{r.email}</strong>
+                  <span className={"pill tone-" + info.tone}>{info.label}</span>
+                </div>
+                <div className="muted small">
+                  {r.date ? new Date(r.date).toLocaleString("en-GB", { timeZone: "Asia/Riyadh", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true }) : ""} · {r.subject}
+                </div>
+                <div className="small">
+                  {info.help}
+                  {r.reason ? <span className="muted"> Brevo says: “{r.reason}”</span> : null}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+

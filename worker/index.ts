@@ -21,7 +21,7 @@ import {
   type Decision,
   type Finding,
 } from "./db";
-import { buildOrderEmail, EMAIL_RE, emailConfigured, publicEmailSettings, sendBrevo } from "./email";
+import { brevoEvents, buildOrderEmail, EMAIL_RE, emailConfigured, publicEmailSettings, sendBrevo } from "./email";
 import { anomaliesOf, checkDay, cutoffAt, dayDetail, decide, layoutOf, openDay, rollover, type Ctx } from "./logic";
 
 export interface Env {
@@ -646,8 +646,9 @@ app.put("/admin/email", async (c) => {
 app.post("/admin/email/test", async (c) => {
   const e = c.var.ctx.cfg.email;
   if (!emailConfigured(e) || !e.recipients.length) fail(400, "Save the API key, sender email and recipients first.");
+  let messageId: string | null = null;
   try {
-    await sendBrevo(e!, {
+    messageId = await sendBrevo(e!, {
       subject: "HM Mixes Order — test email",
       html: `<p style="font-family:Arial,sans-serif">Brevo is connected. Reviewed orders will be sent from <b>${e!.sender_email}</b> to these recipients.</p>`,
       to: e!.recipients,
@@ -655,7 +656,18 @@ app.post("/admin/email/test", async (c) => {
   } catch (err) {
     fail(502, (err as Error).message);
   }
-  return c.json({ ok: true, recipients: e!.recipients });
+  return c.json({ ok: true, recipients: e!.recipients, message_id: messageId, sender: e!.sender_email });
+});
+
+/** What Brevo did with recent emails from this app (delivered / bounced / blocked …). */
+app.get("/admin/email/events", async (c) => {
+  const e = c.var.ctx.cfg.email;
+  if (!emailConfigured(e)) fail(400, "Save the API key and sender email first.");
+  try {
+    return c.json({ sender: e!.sender_email, events: await brevoEvents(e!) });
+  } catch (err) {
+    return fail(502, (err as Error).message);
+  }
 });
 
 /**
