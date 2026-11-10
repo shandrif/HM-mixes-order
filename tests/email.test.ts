@@ -118,6 +118,9 @@ describe("review and send a day", () => {
     expect(sent.body.subject).toContain("5 November 2026");
     expect(sent.body.htmlContent).toContain("Checked with Nadwa");
     expect(sent.body.htmlContent).toContain("1,440"); // Cookie total 960 + 480
+    expect(sent.body.textContent).toContain("Cookie Topping (gram): 1,440");
+    expect(sent.body.htmlContent).not.toContain("workers.dev"); // site was saved from https://hm.example → links allowed
+    expect(sent.body.htmlContent).toContain("https://hm.example/admin/day/2026-11-05");
     expect(sent.body.attachment[0].name).toBe("HM_Mixes_Order_05_Nov_2026.xlsx");
 
     // The attached workbook is the branded file
@@ -135,4 +138,13 @@ describe("review and send a day", () => {
     const cereal = rows.find((r) => String(r[1]).startsWith("Cereal"))!;
     expect(cereal.slice(2)).toEqual([1624019, 46, 2, 9, 37]);
   }, 120_000);
+});
+
+describe("links in emails", () => {
+  it("are left out while the app runs on a free workers.dev/pages.dev host", async () => {
+    const { linkableSite } = await import("../worker/email");
+    expect(linkableSite("https://hm-mixes-order.shelfy-help.workers.dev")).toBeNull();
+    expect(linkableSite("https://x.pages.dev")).toBeNull();
+    expect(linkableSite("https://orders.hmreport.com/")).toBe("https://orders.hmreport.com");
+  });
 });
