@@ -58,7 +58,7 @@ export async function buildOrderEmail(ctx: Ctx, day: string, note: string, sentB
 }
 
 /** Send through Brevo. Throws with Brevo's message on failure. */
-export async function sendBrevo(e: EmailSettings, mail: { subject: string; html: string; to: string[]; attachments?: Attachment[] }): Promise<void> {
+export async function sendBrevo(e: EmailSettings, mail: { subject: string; html: string; to: string[]; attachments?: Attachment[] }): Promise<string | null> {
   const res = await fetch(BREVO_URL, {
     method: "POST",
     headers: { "api-key": e.api_key, "content-type": "application/json", accept: "application/json" },
@@ -77,6 +77,8 @@ export async function sendBrevo(e: EmailSettings, mail: { subject: string; html:
       if (j.message) msg += `: ${j.message}`;
       if (res.status === 401 && /key not found/i.test(j.message ?? ""))
         msg = "Brevo doesn't recognise the saved API key (it may be incomplete, deleted, or an SMTP key). Create a new one in Brevo → Settings → SMTP & API → API Keys (it starts with “xkeysib-”), paste it in Settings → Order email and Save.";
+      else if (/sender/i.test(j.message ?? ""))
+        msg = `Brevo rejected the sender address ${e.sender_email}: ${j.message}. In Brevo → Settings → Senders, Domains & Dedicated IPs, add this exact address under Senders (and make sure its domain shows “Authenticated” under Domains).`;
       else if (res.status === 401 && /ip/i.test(j.message ?? ""))
         msg = "Brevo blocked the request because of IP restrictions. In Brevo → Settings → Security → Authorised IPs, turn off “Block unknown IP addresses” for the API (Cloudflare sends from changing IPs).";
     } catch {
@@ -84,6 +86,43 @@ export async function sendBrevo(e: EmailSettings, mail: { subject: string; html:
     }
     throw new Error(msg);
   }
+  try {
+    return ((await res.json()) as { messageId?: string }).messageId ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export interface DeliveryEvent {
+  date: string;
+  email: string;
+  subject: string;
+  event: string;
+  reason: string | null;
+  from: string | null;
+  messageId: string | null;
+}
+
+/** Recent delivery events from Brevo (delivered, bounced, blocked, …) for this app's sender. */
+export async function brevoEvents(e: EmailSettings, days = 7): Promise<DeliveryEvent[]> {
+  const url = `https://api.brevo.com/v3/smtp/statistics/events?limit=100&days=${days}&sort=desc`;
+  const res = await fetch(url, { headers: { "api-key": e.api_key, accept: "application/json" } });
+  if (!res.ok) {
+    let msg = `Brevo error ${res.status}`;
+    try {
+      const j = (await res.json()) as { message?: string };
+      if (j.message) msg += `: ${j.message}`;
+    } catch {
+      /* not JSON */
+    }
+    throw new Error(msg);
+  }
+  const j = (await res.json()) as { events?: Partial<DeliveryEvent>[] };
+  const sender = e.sender_email.toLowerCase();
+  return (j.events ?? [])
+    .filter((ev) => !ev.from || ev.from.toLowerCase() === sender)
+    .map((ev) => ({ date: ev.date ?? "", email: ev.email ?? "", subject: ev.subject ?? "", event: ev.event ?? "", reason: ev.reason ?? null, from: ev.from ?? null, messageId: ev.messageId ?? null }))
+    .slice(0, 60);
 }
 
 export function publicEmailSettings(cfg: Config) {
