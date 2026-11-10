@@ -118,7 +118,12 @@ describe("review and send a day", () => {
     expect(sent.body.subject).toContain("5 November 2026");
     expect(sent.body.htmlContent).toContain("Checked with Nadwa");
     expect(sent.body.htmlContent).toContain("1,440"); // Cookie total 960 + 480
-    expect(sent.body.textContent).toContain("Cookie Topping (gram): 1,440");
+    // whole sheet in the body: every branch row and the totals row
+    expect(sent.body.htmlContent).toContain(">Rawabi<");
+    expect(sent.body.htmlContent).toContain(">Nadwa<");
+    expect(sent.body.htmlContent).toContain("Total Riyadh Production");
+    expect(sent.body.textContent).toMatch(/Rawabi\s+\| 6 \| 960/);
+    expect(sent.body.textContent).toMatch(/Total Riyadh Production\s+\| 46 \| 1,440/);
     expect(sent.body.htmlContent).not.toContain("workers.dev"); // site was saved from https://hm.example → links allowed
     expect(sent.body.htmlContent).toContain("https://hm.example/admin/day/2026-11-05");
     expect(sent.body.attachment[0].name).toBe("HM_Mixes_Order_05_Nov_2026.xlsx");
