@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError, fmtCutoff, fmtQty, fmtTime } from "../api";
 import { strings, useLang, type Lang } from "../i18n";
+import { navigate } from "../router";
 
 interface PublicInfo {
   open_day: string;
@@ -172,6 +173,29 @@ function BranchPicker({ lang, onDone, onError }: { lang: Lang; onDone: () => voi
           </span>
         </div>
       )}
+      <a
+        className="m-preview-link"
+        data-ripple
+        href="/sheet"
+        onClick={(e) => {
+          e.preventDefault();
+          navigate("/sheet");
+        }}
+      >
+        <span className="m-preview-icon" aria-hidden>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </span>
+        <span className="m-preview-text">
+          <strong>{t.viewSheet}</strong>
+          <small>{t.viewSheetHelp}</small>
+        </span>
+        <span className="m-chev" aria-hidden>
+          ›
+        </span>
+      </a>
       <h1 className="m-title">{t.chooseStore}</h1>
       <div className="m-search">
         <span aria-hidden>⌕</span>
