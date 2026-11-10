@@ -5,6 +5,8 @@ export function navigate(to: string, replace = false) {
   else history.pushState(null, "", to);
   window.dispatchEvent(new PopStateEvent("popstate"));
   window.scrollTo(0, 0);
+  // On phones the app area scrolls instead of the page.
+  document.querySelectorAll<HTMLElement>(".admin-main, .m-shell").forEach((el) => (el.scrollTop = 0));
 }
 
 export function useLocation() {

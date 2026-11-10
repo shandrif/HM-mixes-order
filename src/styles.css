@@ -636,12 +636,19 @@ button, .btn, .m-branch, .m-step, .m-chip-btn, .admin-nav nav a { -webkit-user-s
   table.list.stack.days-table td:last-child:empty, table.list.stack.days-table td:last-child:not(:has(span)) { display: none; }
 }
 
-/* iOS Safari (floating address bar) draws the page under its toolbar and keeps
-   position:fixed bars above it, so content shows through the gap below them.
-   Extend each bottom bar's background downward to fill that strip. */
-.m-bottombar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 200px; background: #fffdf9; pointer-events: none; }
+/* iOS Safari (floating address bar) draws the page beneath its toolbar but
+   clips position:fixed bars above it, so scrolling page content showed in the
+   strip under the bottom bars. On phones the document no longer scrolls:
+   content scrolls inside the app area, and the strip shows the root
+   background, coloured to match the bar. */
 @media (max-width: 760px) {
-  .admin-nav nav::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 200px; background: #1f1a17; pointer-events: none; }
+  html:has(.admin-shell), html:has(.admin-shell) body, html:has(.admin-shell) #root,
+  html:has(.m-shell), html:has(.m-shell) body, html:has(.m-shell) #root { height: 100%; overflow: hidden; }
+  html:has(.admin-shell) { background: #1f1a17; }
+  html:has(.m-shell) { background: #fffdf9; }
+  .admin-shell { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+  .admin-nav { position: relative; flex: none; }
+  .admin-main { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; background: var(--bg); }
   .admin-nav nav { background: #1f1a17; }
+  .m-shell { height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
 }
-html { background: var(--bg); }
