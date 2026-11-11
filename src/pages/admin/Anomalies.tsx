@@ -11,13 +11,25 @@ export default function Anomalies({ onChange }: { onChange: () => void }) {
   const [sev, setSev] = useState<string>("");
   const [rule, setRule] = useState<string>("");
   const [sel, setSel] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(false);
 
+  // Keep the current list on screen while the next one loads (no flash of
+  // "Loading…" and no re-mounted table). Stale responses are ignored.
   const load = useCallback(() => {
-    setRows(null);
-    api<Row[]>(`/admin/anomalies?status=${status}`).then((r) => {
-      setRows(r);
-      setSel(new Set());
-    });
+    let live = true;
+    setLoading(true);
+    setSel(new Set());
+    api<Row[]>(`/admin/anomalies?status=${status}`).then(
+      (r) => {
+        if (!live) return;
+        setRows(r);
+        setLoading(false);
+      },
+      () => live && setLoading(false),
+    );
+    return () => {
+      live = false;
+    };
   }, [status]);
   useEffect(load, [load]);
 
@@ -37,6 +49,9 @@ export default function Anomalies({ onChange }: { onChange: () => void }) {
       note = r || undefined;
     }
     await api("/admin/anomalies/bulk", { body: { ids: [...sel], status: st, note } });
+    // Drop the changed rows right away; the reload then confirms.
+    const done = new Set(sel);
+    if (status !== "all") setRows((p) => (p ? p.filter((r) => !done.has(r.id)) : p));
     load();
     onChange();
   };
@@ -97,7 +112,7 @@ export default function Anomalies({ onChange }: { onChange: () => void }) {
       {!rows ? (
         <div className="center-msg">Loading…</div>
       ) : (
-        <div className="table-wrap card flush">
+        <div className={"table-wrap card flush" + (loading ? " is-loading" : "")} aria-busy={loading}>
           <table className="list stack">
             <thead>
               <tr>

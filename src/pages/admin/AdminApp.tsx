@@ -50,8 +50,8 @@ export default function AdminApp() {
   useEffect(() => {
     document.documentElement.dir = "ltr";
     document.documentElement.lang = "en";
-    api<{ email: string }>("/admin/me").then(
-      (r) => setMe(r.email),
+    api<{ email: string } | null>("/session/admin").then(
+      (r) => setMe(r ? r.email : null),
       () => setMe(null),
     );
   }, []);

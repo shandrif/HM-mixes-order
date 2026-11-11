@@ -79,6 +79,14 @@ describe("API on one-row-per-day storage", () => {
     expect(info.stores).toHaveLength(70);
     const infoReads = m.read;
 
+    // Signed-out probes answer null (no 401 in the browser console).
+    expect((await call("/store/order?probe=1")).json).toBeNull();
+    expect((await call("/session/admin")).json).toEqual({ email: "owner@hm.sa" });
+    const savedAdmin = jar.hm_admin;
+    delete jar.hm_admin;
+    expect((await call("/session/admin")).json).toBeNull();
+    jar.hm_admin = savedAdmin;
+
     m.read = m.written = 0;
     expect((await call("/store/login", { body: { store_id: 5 } })).status).toBe(200);
     const loginReads = m.read;
