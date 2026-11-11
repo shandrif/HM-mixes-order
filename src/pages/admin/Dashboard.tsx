@@ -22,7 +22,7 @@ export default function Dashboard({ overview, onChange }: { overview: Overview |
 
   return (
     <div className="page">
-      <header className="page-head hero">
+      <header className="page-head">
         <div>
           <div className="eyebrow">Open for ordering · delivery day</div>
           <h1>{formatDayLong(overview.open_day)}</h1>
@@ -42,10 +42,10 @@ export default function Dashboard({ overview, onChange }: { overview: Overview |
       )}
 
       <div className="stats">
-        <Stat label="Stores submitted" value={<><CountUp to={overview.submitted_today} /> / {overview.stores_active}</>} tone={overview.submitted_today >= overview.stores_active ? "ok" : undefined} />
-        <Stat label="Critical anomalies" value={<CountUp to={overview.anomalies.critical ?? 0} />} tone={(overview.anomalies.critical ?? 0) > 0 ? "critical" : "ok"} to="/admin/anomalies" />
-        <Stat label="Warnings" value={<CountUp to={overview.anomalies.warning ?? 0} />} tone={(overview.anomalies.warning ?? 0) > 0 ? "warning" : undefined} to="/admin/anomalies" />
-        <Stat label="Days on record" value={<CountUp to={overview.days.n} />} sub={overview.days.first ? `${shortDay(overview.days.first)} – ${shortDay(overview.days.last!)}` : undefined} to="/admin/days" />
+        <Stat label="Stores submitted" value={`${overview.submitted_today} / ${overview.stores_active}`} tone={overview.submitted_today >= overview.stores_active ? "ok" : undefined} />
+        <Stat label="Critical anomalies" value={overview.anomalies.critical ?? 0} tone={(overview.anomalies.critical ?? 0) > 0 ? "critical" : "ok"} to="/admin/anomalies" />
+        <Stat label="Warnings" value={overview.anomalies.warning ?? 0} tone={(overview.anomalies.warning ?? 0) > 0 ? "warning" : undefined} to="/admin/anomalies" />
+        <Stat label="Days on record" value={overview.days.n} sub={overview.days.first ? `${shortDay(overview.days.first)} – ${shortDay(overview.days.last!)}` : undefined} to="/admin/days" />
       </div>
 
       {prev && (
@@ -113,28 +113,4 @@ function Stat({ label, value, sub, tone, to }: { label: string; value: React.Rea
   ) : (
     <div className={"stat " + (tone ?? "")}>{body}</div>
   );
-}
-
-/** Numbers count up once when the dashboard loads (skipped for reduced motion). */
-function CountUp({ to }: { to: number }) {
-  const [n, setN] = useState(() => (window.matchMedia("(prefers-reduced-motion: reduce)").matches ? to : 0));
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || to === 0) {
-      setN(to);
-      return;
-    }
-    const start = performance.now();
-    const from = 0;
-    const dur = 700;
-    let raf = 0;
-    const step = (t: number) => {
-      const p = Math.min(1, (t - start) / dur);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setN(Math.round(from + (to - from) * eased));
-      if (p < 1) raf = requestAnimationFrame(step);
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [to]);
-  return <>{n.toLocaleString("en-US")}</>;
 }
