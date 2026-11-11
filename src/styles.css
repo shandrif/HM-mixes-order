@@ -872,3 +872,62 @@ button, .btn, .m-branch, .m-step, .m-chip-btn, .admin-nav nav a { -webkit-user-s
 @media (prefers-reduced-motion: reduce) {
   .clay-bg i { animation: none; }
 }
+
+/* ── Clay: read-only order sheet (/sheet) ── */
+.m-shell .seg {
+  display: flex; gap: 6px; padding: 6px; border: 0; border-radius: 22px; overflow: visible;
+  background: #efe5d8; box-shadow: var(--clay-sunk);
+}
+.m-shell .seg button {
+  border-radius: 16px; color: var(--ink-2);
+  transition: transform 420ms var(--spring), background-color 200ms, color 200ms, box-shadow 200ms;
+}
+.m-shell .seg button.on { background: var(--ink); color: #fff; box-shadow: var(--clay-dark-lift), 0 8px 14px -8px rgba(31, 26, 23, 0.7); }
+.m-shell .seg button:active { transform: scale(0.95, 0.9); transition-duration: 120ms; }
+.m-shell .seg button.on small { opacity: 0.85; }
+
+.m-shell .sp-head { position: relative; overflow: hidden; isolation: isolate; border-radius: 26px; padding: 18px 20px; box-shadow: var(--clay-drop), var(--clay-dark-lift); }
+.m-shell .sp-head::before, .m-shell .sp-head::after {
+  content: ""; position: absolute; z-index: -1; border-radius: 50%; will-change: transform;
+  box-shadow: inset 4px 5px 8px rgba(255, 255, 255, 0.55), inset -6px -8px 12px rgba(0, 0, 0, 0.28), 0 8px 16px -6px rgba(0, 0, 0, 0.5);
+  animation: clay-float 6s ease-in-out infinite;
+}
+.m-shell .sp-head::before { width: 80px; height: 80px; right: -16px; top: -20px; background: var(--gold-soft); }
+.m-shell .sp-head::after { width: 40px; height: 40px; right: 70px; bottom: -14px; background: var(--mint); animation-delay: -2.4s; animation-duration: 7s; }
+.m-shell .sp-state { box-shadow: inset 1px 2px 3px rgba(255, 255, 255, 0.25), inset -2px -2px 4px rgba(0, 0, 0, 0.25); }
+
+.m-shell .sp-search { box-shadow: var(--clay-sunk); }
+
+/* Totals + branch cards */
+.m-shell .sp-totals { border: 0; border-radius: 22px; background: var(--clay); box-shadow: var(--clay-drop), var(--clay-lift); }
+.m-shell .sp-totals li + li { border-top: 1px solid rgba(166, 124, 72, 0.14); }
+.m-shell .sp-totals li { animation: clay-pop 520ms var(--spring) both; animation-delay: calc(var(--i, 0) * 35ms); }
+.m-shell .sp-cards { gap: 12px; }
+.m-shell .sp-card {
+  border: 0; border-radius: 22px; padding: 14px 16px; background: var(--clay); box-shadow: var(--clay-drop), var(--clay-lift);
+  animation: clay-pop 520ms var(--spring) both; animation-delay: calc(var(--i, 0) * 40ms);
+}
+.m-shell .sp-card.none { opacity: 1; background: #f6efe6; box-shadow: var(--clay-sunk); border: 0; }
+.m-shell .sp-card dl > div { border-bottom: 1px dashed rgba(166, 124, 72, 0.22); }
+.m-shell .sp-badge { padding: 2px 9px; border-radius: 999px; background: #f3eadf; box-shadow: inset 1px 2px 3px rgba(255, 255, 255, 0.9), inset -2px -2px 4px rgba(166, 124, 72, 0.15); }
+
+/* Table: a clay slab with puffy header and totals rows */
+.m-shell .sheet-wrap {
+  border: 0; border-radius: 24px; background: var(--clay);
+  box-shadow: var(--clay-drop), var(--clay-lift); padding: 6px;
+}
+.m-shell table.sheet th, .m-shell table.sheet td { border-color: rgba(166, 124, 72, 0.14); }
+.m-shell table.sheet thead th { background: var(--mint); box-shadow: inset 0 2px 3px rgba(255, 255, 255, 0.55), inset 0 -3px 5px rgba(47, 122, 99, 0.22); }
+.m-shell table.sheet thead th:first-child { border-top-left-radius: 18px; }
+.m-shell table.sheet thead th:last-child { border-top-right-radius: 18px; }
+.m-shell table.sheet .sticky-col { background: #f6eee3; }
+.m-shell table.sheet thead .sticky-col { background: var(--mint); }
+.m-shell table.sheet tbody tr:nth-child(even) td.ro { background: #fbf6ef; }
+.m-shell table.sheet tfoot th, .m-shell table.sheet tfoot td { background: var(--gold-soft); box-shadow: inset 0 3px 4px rgba(255, 255, 255, 0.45), inset 0 -2px 4px rgba(138, 100, 49, 0.25); }
+.m-shell table.sheet tfoot th:first-child, .m-shell table.sheet tfoot td:first-child { border-bottom-left-radius: 18px; }
+.m-shell table.sheet tfoot th:last-child, .m-shell table.sheet tfoot td:last-child { border-bottom-right-radius: 18px; }
+.m-shell table.sheet tfoot .sticky-col { background: var(--gold-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+  .m-shell .sp-head::before, .m-shell .sp-head::after, .m-shell .sp-card, .m-shell .sp-totals li { animation: none; }
+}
