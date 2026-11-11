@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError, fmtCutoff, fmtQty, fmtTime } from "../api";
 import { strings, useLang, type Lang } from "../i18n";
 import { navigate } from "../router";
+import { RollingCounter } from "@/components/ui/rolling-counter";
 
 interface PublicInfo {
   open_day: string;
@@ -271,6 +272,8 @@ function useCountdown(targetIso: string, serverNowIso: string) {
 
 // "+ / − only" items can't be typed, so they start at 0 instead of empty.
 const blank = (i: { buttons_only?: number }) => (i.buttons_only ? "0" : "");
+/** 0.5 → 1 digit after the point, 480 → none. */
+const decimalsOf = (step: number) => (Number.isInteger(step) ? 0 : Math.min(3, String(step).split(".")[1]?.length ?? 0));
 const isHigh = (v: number | null, last: number | null | undefined) => v != null && last != null && v > Math.max(last * 3, last + 4);
 
 function OrderForm({ data, lang, toast, onReload, onSwitch }: { data: OrderData; lang: Lang; toast: ToastFn; onReload: () => void; onSwitch: () => void }) {
@@ -303,16 +306,6 @@ function OrderForm({ data, lang, toast, onReload, onSwitch }: { data: OrderData;
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty, submittedAt]);
-
-  const stepBy = useCallback((it: OrderItem, dir: 1 | -1) => {
-    setVals((p) => {
-      const cur = p[it.id] === "" || p[it.id] === undefined ? 0 : Number(p[it.id]) || 0;
-      const next = Math.max(0, Math.round((cur + dir * it.step) / it.step) * it.step);
-      if (next === cur && p[it.id] !== "") return p;
-      tick();
-      return { ...p, [it.id]: String(Number(next.toFixed(3))) };
-    });
-  }, []);
 
   const openReview = () => {
     if (!allFilled) {
@@ -443,12 +436,18 @@ function OrderForm({ data, lang, toast, onReload, onSwitch }: { data: OrderData;
                       {isHigh(v, last) && <em> · {t.highWarn}</em>}
                     </span>
                   </div>
-                  <Stepper
-                    item={it}
-                    value={vals[it.id] ?? ""}
-                    onStep={(d) => stepBy(it, d)}
-                    onType={(raw) => setVals((p) => ({ ...p, [it.id]: raw }))}
-                    onBlur={() => v !== null && setVals((p) => ({ ...p, [it.id]: String(Math.max(0, Math.round(v / it.step) * it.step)) }))}
+                  <RollingCounter
+                    className="m-counter"
+                    label={name(it)}
+                    value={v ?? 0}
+                    unset={v === null}
+                    min={0}
+                    step={it.step}
+                    decimals={decimalsOf(it.step)}
+                    onChange={(n) => {
+                      tick();
+                      setVals((p) => ({ ...p, [it.id]: String(Number(n.toFixed(3))) }));
+                    }}
                   />
                 </div>
               );
@@ -513,65 +512,6 @@ function OrderForm({ data, lang, toast, onReload, onSwitch }: { data: OrderData;
         </div>
       </Sheet>
     </>
-  );
-}
-
-// ───────────────────────── Stepper (tap, or hold to repeat) ─────────────────────────
-
-function Stepper({ item, value, onStep, onType, onBlur }: { item: OrderItem; value: string; onStep: (d: 1 | -1) => void; onType: (raw: string) => void; onBlur: () => void }) {
-  const hold = useRef<{ t?: ReturnType<typeof setTimeout>; i?: ReturnType<typeof setInterval>; repeated?: boolean }>({});
-  const stop = () => {
-    clearTimeout(hold.current.t);
-    clearInterval(hold.current.i);
-  };
-  useEffect(() => stop, []);
-  const press = (d: 1 | -1) => ({
-    onPointerDown: (e: React.PointerEvent) => {
-      if (e.button !== 0) return;
-      stop();
-      hold.current.repeated = false;
-      hold.current.t = setTimeout(() => {
-        hold.current.repeated = true;
-        onStep(d);
-        hold.current.i = setInterval(() => onStep(d), 110);
-      }, 420);
-    },
-    onPointerUp: stop,
-    onPointerLeave: stop,
-    onPointerCancel: stop,
-    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
-    onClick: () => {
-      // A hold already stepped repeatedly; the release click must not add one more.
-      if (hold.current.repeated) {
-        hold.current.repeated = false;
-        return;
-      }
-      onStep(d);
-    },
-  });
-  const n = value === "" ? null : Number(value);
-  return (
-    <div className={"m-stepper" + (item.buttons_only ? " locked" : "")}>
-      <button type="button" className="m-step" aria-label="−" disabled={!n} {...press(-1)}>
-        −
-      </button>
-      <input
-        key={item.buttons_only ? value : "typed" /* re-mount to replay the pop animation */}
-        className={"m-val" + (item.buttons_only ? " pop" : "")}
-        inputMode={item.step % 1 === 0 ? "numeric" : "decimal"}
-        enterKeyHint="next"
-        readOnly={!!item.buttons_only}
-        tabIndex={item.buttons_only ? -1 : undefined}
-        aria-label={item.name}
-        value={value}
-        onFocus={(e) => !item.buttons_only && e.currentTarget.select()}
-        onChange={(e) => onType(e.target.value.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/[^\d.]/g, ""))}
-        onBlur={onBlur}
-      />
-      <button type="button" className="m-step" aria-label="+" {...press(1)}>
-        +
-      </button>
-    </div>
   );
 }
 
