@@ -724,3 +724,117 @@ button, .btn, .m-branch, .m-step, .m-chip-btn, .admin-nav nav a { -webkit-user-s
 .pill.tone-warn { background: var(--warning-soft); color: var(--warning); }
 .pill.tone-bad { background: var(--critical-soft); color: var(--critical); }
 .pill.tone-info { background: var(--info-soft); color: var(--info); }
+
+/* ═════════════════════ Claymorphism (store screens only) ═════════════════════
+   Soft, puffy surfaces: a lit inner highlight (top-left), an inner shade
+   (bottom-right) and a soft drop shadow, in HM cream / gold / ink. Presses
+   squash like clay and spring back. Everything is scoped to .m-shell so the
+   admin is untouched; remove this block to go back. */
+.m-shell {
+  --clay-bg: #f3eadf;
+  --clay: #fcf7f0;
+  --clay-drop: 0 10px 22px -8px rgba(138, 100, 49, 0.28), 0 3px 6px -2px rgba(138, 100, 49, 0.12);
+  --clay-lift: inset 3px 4px 6px rgba(255, 255, 255, 0.95), inset -4px -5px 10px rgba(166, 124, 72, 0.16);
+  --clay-sunk: inset 3px 4px 8px rgba(166, 124, 72, 0.2), inset -3px -3px 6px rgba(255, 255, 255, 0.9);
+  --clay-dark-lift: inset 2px 3px 5px rgba(255, 255, 255, 0.14), inset -3px -4px 8px rgba(0, 0, 0, 0.45);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  background: var(--clay-bg);
+}
+
+/* Puffy surfaces */
+.m-shell :is(.m-preview-link, .m-branches > li, .m-item, .m-card, .m-note, .m-chip-btn.light, .m-secondary) {
+  background: var(--clay);
+  border: 0;
+  box-shadow: var(--clay-drop), var(--clay-lift);
+}
+.m-shell .m-hero { position: relative; overflow: hidden; border-radius: 26px; padding: 18px 20px; background: var(--ink); box-shadow: var(--clay-drop), var(--clay-dark-lift); isolation: isolate; }
+/* Two clay pebbles drifting in the hero */
+.m-shell .m-hero::before, .m-shell .m-hero::after {
+  content: ""; position: absolute; z-index: -1; border-radius: 50%;
+  box-shadow: inset 4px 5px 8px rgba(255, 255, 255, 0.55), inset -6px -8px 12px rgba(0, 0, 0, 0.28), 0 8px 16px -6px rgba(0, 0, 0, 0.5);
+  animation: clay-float 6s ease-in-out infinite;
+}
+.m-shell .m-hero::before { width: 74px; height: 74px; right: -14px; top: -18px; background: var(--gold-soft); }
+.m-shell .m-hero::after { width: 38px; height: 38px; right: 62px; bottom: -12px; background: var(--mint); animation-delay: -2.4s; animation-duration: 7s; }
+
+.m-shell .m-preview-link { border-radius: 22px; }
+.m-shell .m-preview-icon { border-radius: 14px; box-shadow: var(--clay-lift), 0 4px 8px -4px rgba(47, 122, 99, 0.4); }
+
+/* Branch list: separate clay tiles that pop in one after another */
+.m-shell .m-branches { background: none; border: 0; border-radius: 0; overflow: visible; display: flex; flex-direction: column; gap: 10px; }
+.m-shell .m-branches li + li { border-top: 0; }
+.m-shell .m-branches > li { border-radius: 20px; overflow: hidden; animation: clay-pop 520ms var(--spring) both; }
+.m-shell .m-avatar {
+  width: 40px; height: 40px; border-radius: 14px; background: var(--gold-soft); color: var(--ink);
+  box-shadow: inset 2px 3px 4px rgba(255, 255, 255, 0.6), inset -3px -4px 6px rgba(138, 100, 49, 0.35), 0 4px 8px -4px rgba(138, 100, 49, 0.5);
+  transition: transform 380ms var(--spring);
+}
+.m-shell .m-branches > li:nth-child(4n + 2) .m-avatar { background: var(--mint); }
+.m-shell .m-branches > li:nth-child(4n + 3) .m-avatar { background: #f2c9a8; }
+.m-shell .m-branches > li:nth-child(4n + 4) .m-avatar { background: #c9d6ee; }
+.m-shell .m-branch:active { background: transparent; }
+.m-shell .m-branch:active .m-avatar { transform: scale(1.12, 0.88) rotate(-6deg); }
+
+/* Search: pressed into the clay; puffs up when focused */
+.m-shell .m-search {
+  border: 0; border-radius: 18px; background: #f6efe6; box-shadow: var(--clay-sunk);
+  transition: box-shadow 260ms var(--ease-out), transform 260ms var(--spring);
+}
+.m-shell .m-search:focus-within { background: var(--clay); box-shadow: var(--clay-drop), var(--clay-lift), 0 0 0 3px rgba(212, 179, 139, 0.45); transform: translateY(-1px); }
+.m-shell .m-clear { box-shadow: var(--clay-lift); }
+
+/* Squash-and-stretch presses, spring back on release */
+.m-shell :is(.m-branch, .m-preview-link, .m-chip-btn, .m-primary, .m-secondary) {
+  transition: transform 420ms var(--spring), box-shadow 200ms var(--ease-out), background 160ms;
+}
+.m-shell :is(.m-branches > li, .m-preview-link):has(:active), .m-shell .m-preview-link:active { transform: scale(0.97, 0.94); transition-duration: 120ms; }
+.m-shell :is(.m-chip-btn, .m-primary, .m-secondary):active:not(:disabled) { transform: scale(0.95, 0.9); transition-duration: 120ms; }
+.m-shell .m-branches > li { transition: transform 420ms var(--spring); }
+
+/* Order screen */
+.m-shell .m-orderbar { background: rgba(243, 234, 223, 0.9); border-bottom: 0; box-shadow: 0 8px 18px -14px rgba(138, 100, 49, 0.5); }
+.m-shell .m-timer { border-radius: 16px; box-shadow: var(--clay-dark-lift), 0 6px 12px -6px rgba(0, 0, 0, 0.45); }
+.m-shell .m-status { box-shadow: inset 1px 2px 3px rgba(255, 255, 255, 0.8), inset -2px -2px 4px rgba(0, 0, 0, 0.06); }
+.m-shell .m-status.ok { animation: clay-pop 520ms var(--spring) both; }
+.m-shell .m-note { border-radius: 18px; background: #f7efe4; box-shadow: var(--clay-sunk); }
+.m-shell .m-chip-btn.light { border-radius: 16px; }
+
+.m-shell .m-items { gap: 12px; }
+.m-shell .m-item {
+  border-radius: 22px; min-height: 76px;
+  animation: clay-pop 520ms var(--spring) both; animation-delay: calc(var(--i, 0) * 45ms);
+}
+.m-shell .m-item.empty { border: 0; box-shadow: var(--clay-sunk); background: #f6efe6; }
+.m-shell .m-item.high { box-shadow: var(--clay-drop), var(--clay-lift), 0 0 0 3px #f6d58f; }
+.m-shell .m-item.shake { animation: m-shake 420ms var(--ease-out); box-shadow: var(--clay-drop), var(--clay-lift), 0 0 0 3px rgba(180, 35, 24, 0.55); }
+.m-shell .m-item.derived { background: var(--mint-soft); }
+.m-shell .m-dot { box-shadow: inset 1px 1px 2px rgba(255, 255, 255, 0.7); animation: clay-pop 400ms var(--spring) both; }
+
+/* Bottom bar: clay slab with a puffy progress tube */
+.m-shell .m-bottombar { background: rgba(243, 234, 223, 0.92); border-top: 0; box-shadow: 0 -10px 24px -16px rgba(138, 100, 49, 0.55); }
+.m-shell .m-progress-track { height: 10px; background: #eadfd1; box-shadow: var(--clay-sunk); }
+.m-shell .m-progress-fill {
+  border-radius: 99px; background: linear-gradient(180deg, #3aa57a, var(--ok));
+  box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.45), inset 0 -2px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 600ms var(--spring);
+}
+.m-shell .m-primary { border-radius: 20px; box-shadow: var(--clay-dark-lift), 0 10px 20px -10px rgba(31, 26, 23, 0.7); }
+.m-shell .m-primary:disabled { background: #d7cbbd; box-shadow: var(--clay-sunk); color: #fff; }
+.m-shell .m-secondary { border-radius: 20px; }
+.m-shell .m-card { border-radius: 26px; }
+.m-shell .m-sheet { background: var(--clay-bg); border-radius: 30px 30px 0 0; box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.2), inset 0 3px 6px rgba(255, 255, 255, 0.9); }
+.m-shell .m-review { border: 0; border-radius: 20px; background: var(--clay); box-shadow: var(--clay-sunk); }
+.m-shell .m-skel { border-radius: 22px; box-shadow: var(--clay-sunk); }
+
+@keyframes clay-pop {
+  0% { opacity: 0; transform: translateY(14px) scale(0.9, 0.86); }
+  60% { opacity: 1; transform: translateY(-2px) scale(1.02, 1.03); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes clay-float {
+  0%, 100% { transform: translate(0, 0) scale(1, 1); }
+  50% { transform: translate(-6px, 8px) scale(1.06, 0.95); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .m-shell .m-hero::before, .m-shell .m-hero::after, .m-shell .m-branches > li, .m-shell .m-item, .m-shell .m-status.ok, .m-shell .m-dot { animation: none; }
+}
