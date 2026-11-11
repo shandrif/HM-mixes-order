@@ -507,19 +507,9 @@ button, .btn, .m-branch, .m-step, .m-chip-btn, .admin-nav nav a { -webkit-user-s
 
 /* Ripple host + ripple */
 .btn, .m-primary, .m-secondary, .m-chip-btn, .m-branch, .admin-nav nav a, a.stat, .seg button, [data-ripple] { position: relative; overflow: hidden; isolation: isolate; }
-/* Water-drop ripple: light from the top-left; crests are bright, troughs shadowed. */
-.ripple-water { position: absolute; pointer-events: none; z-index: -1; --rw-hi: #fff; --rw-lo: rgba(80,50,20,.34); --rw-tint: rgba(205,163,113,.16); }
-.btn.primary .ripple-water, .m-primary .ripple-water, .admin-nav nav a .ripple-water, .m-branch:active .ripple-water { --rw-hi: rgba(255,255,255,.55); --rw-lo: rgba(0,0,0,.45); --rw-tint: rgba(255,255,255,.06); }
-.rw-ring, .rw-drop { position: absolute; inset: 0; border-radius: 50%; will-change: transform, opacity; }
-.rw-ring {
-  background: radial-gradient(closest-side, transparent 56%, var(--rw-tint) 70%, var(--rw-lo) 84%, transparent 88.5%, var(--rw-hi) 92%, transparent 98%);
-  box-shadow: inset 2px 3px 2px -1px var(--rw-hi), inset -2px -3px 3px -1px var(--rw-lo), 1px 2px 3px -1px var(--rw-lo);
-}
-.rw-drop {
-  inset: auto; left: calc(50% - 11px); top: calc(50% - 11px); width: 22px; height: 22px;
-  background: radial-gradient(circle at 34% 30%, var(--rw-hi) 0 18%, rgba(255,255,255,.25) 32%, var(--rw-tint) 55%, var(--rw-lo) 100%);
-  box-shadow: 0 2px 4px var(--rw-lo), inset 0 -2px 3px var(--rw-lo);
-}
+.ripple { position: absolute; border-radius: 50%; background: currentColor; pointer-events: none; z-index: -1; will-change: transform, opacity; }
+.btn.primary .ripple, .m-primary .ripple, .admin-nav nav a .ripple { background: #fff; }
+.admin-nav nav a.active .ripple { background: var(--ink); }
 
 /* Visible, smooth keyboard focus */
 :where(button, a, input, select, textarea):focus-visible { outline: 3px solid var(--gold-soft); outline-offset: 2px; transition: outline-offset 120ms var(--ease-out); }
