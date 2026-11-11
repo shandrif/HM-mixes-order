@@ -438,6 +438,7 @@ function OrderForm({ data, lang, toast, onReload, onSwitch }: { data: OrderData;
                   </div>
                   <RollingCounter
                     className="m-counter"
+                    size="sm"
                     label={name(it)}
                     value={v ?? 0}
                     unset={v === null}

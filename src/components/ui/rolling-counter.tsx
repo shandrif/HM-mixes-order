@@ -7,6 +7,7 @@
 //  - `unset`: render a faint 0 for "not entered yet"; pressing − records min.
 //  - `touch-none` on the digit area so dragging on a phone changes the number
 //    instead of scrolling the page.
+//  - `size="sm"`: a compact version for lists (default size unchanged).
 //  - `editable`: tap the number to type a value (Enter/blur saves, Esc cancels).
 //  - controlled value changes from outside (e.g. "Copy last order") now roll the
 //    digits too (the original compared against the already-updated render value).
@@ -32,6 +33,8 @@ export interface RollingCounterProps {
   decimals?: number;
   /** Show as "not entered yet" (faint digits); − then sets the minimum */
   unset?: boolean;
+  /** "sm" = compact (30px buttons) */
+  size?: "default" | "sm";
   /** Tap the number to type a value */
   editable?: boolean;
   /** Spring bounce elasticity (0 to 100) */
@@ -49,7 +52,7 @@ export interface RollingCounterProps {
 }
 
 const PLACES = 5;
-const CELL_HEIGHT = 42;
+const CELL_HEIGHTS = { default: 42, sm: 30 } as const;
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1];
 
 const getSpring = (tune: number) => ({
@@ -82,6 +85,7 @@ export function RollingCounter({
   decimals = 0,
   unset = false,
   editable = false,
+  size = "default",
   bounce = 40,
   stagger = 32,
   blur = 24,
@@ -127,6 +131,10 @@ export function RollingCounter({
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState("");
 
+  const sm = size === "sm";
+  const CELL_HEIGHT = CELL_HEIGHTS[size];
+  const cellRef = React.useRef(CELL_HEIGHT);
+  cellRef.current = CELL_HEIGHT;
   const tuning = React.useRef({ bounce, stagger, blur });
   tuning.current = { bounce, stagger, blur };
 
@@ -138,7 +146,7 @@ export function RollingCounter({
       const normalizedMod = ((col.pos % 10) + 10) % 10;
       const smear = Math.min(2.2, Math.abs(col.vel) * 1.8) * (tuning.current.blur / 50);
 
-      el.style.transform = `translate3d(0, ${-normalizedMod * CELL_HEIGHT}px, 0)`;
+      el.style.transform = `translate3d(0, ${-normalizedMod * cellRef.current}px, 0)`;
       el.style.filter = smear > 0.12 ? `blur(${smear.toFixed(2)}px)` : "none";
     });
   }, []);
@@ -363,8 +371,8 @@ export function RollingCounter({
     <div
       className={cn(
         // Outer Pill Frame: Exact concentric radius (R_outer = R_inner + padding = 14px + 5px = 19px -> rounded-[20px])
-        "relative inline-flex items-center justify-center p-[5px]",
-        "rounded-[20px] bg-[#161618] text-white",
+        "relative inline-flex items-center justify-center bg-[#161618] text-white",
+        sm ? "p-[3px] rounded-[13px]" : "p-[5px] rounded-[20px]",
         "border border-white/[0.08] shadow-[0_8px_28px_-6px_rgba(0,0,0,0.65),inset_0_1px_0_0_rgba(255,255,255,0.08)]",
         disabled && "opacity-50 pointer-events-none cursor-not-allowed",
         className
@@ -381,7 +389,8 @@ export function RollingCounter({
         onPointerLeave={handleHoldEnd}
         onPointerCancel={handleHoldEnd}
         className={cn(
-          "w-[42px] h-[42px] flex items-center justify-center rounded-[14px]",
+          "flex items-center justify-center",
+          sm ? "w-[30px] h-[30px] rounded-[10px]" : "w-[42px] h-[42px] rounded-[14px]",
           "bg-[#242427] text-neutral-300 border border-white/[0.05]",
           "hover:bg-[#2d2d31] hover:text-white hover:border-white/[0.1]",
           "active:scale-[0.96] active:bg-[#1e1e21]",
@@ -390,7 +399,7 @@ export function RollingCounter({
           "disabled:opacity-30 disabled:pointer-events-none"
         )}
       >
-        <Minus className="w-[18px] h-[18px] stroke-[2.4]" />
+        <Minus className={cn(sm ? "w-[14px] h-[14px]" : "w-[18px] h-[18px]", "stroke-[2.4]")} />
       </button>
 
       {/* Scrubbable Digit Area */}
@@ -434,8 +443,9 @@ export function RollingCounter({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         className={cn(
-          "relative h-[42px] min-w-[56px] px-3.5 flex items-center justify-center cursor-ns-resize overflow-hidden touch-none",
-          "font-sans font-semibold text-[25px] leading-none text-white tracking-[-0.03em] tabular-nums select-none",
+          sm ? "h-[30px] min-w-[40px] px-2 text-[17px]" : "h-[42px] min-w-[56px] px-3.5 text-[25px]",
+          "relative flex items-center justify-center cursor-ns-resize overflow-hidden touch-none",
+          "font-sans font-semibold leading-none text-white tracking-[-0.03em] tabular-nums select-none",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/20 rounded-lg",
           "antialiased transition-opacity duration-200",
           unset && !editing && "opacity-35"
@@ -462,7 +472,8 @@ export function RollingCounter({
             }}
             className={cn(
               "absolute inset-0 z-10 w-full h-full rounded-lg bg-[#242427] text-center text-white",
-              "font-semibold text-[22px] tabular-nums outline-none ring-1 ring-white/25"
+              sm ? "text-[16px]" : "text-[22px]",
+              "font-semibold tabular-nums outline-none ring-1 ring-white/25"
             )}
           />
         )}
@@ -504,7 +515,8 @@ export function RollingCounter({
               {p === 3 + decimals && (
                 <span
                   className={cn(
-                    "text-neutral-400 text-lg transition-all duration-200 mx-[1px]",
+                    sm ? "text-sm" : "text-lg",
+                    "text-neutral-400 transition-all duration-200 mx-[1px]",
                     shownDigits > 3 + decimals ? "w-auto opacity-100" : "w-0 opacity-0 overflow-hidden"
                   )}
                 >
@@ -527,7 +539,8 @@ export function RollingCounter({
         onPointerLeave={handleHoldEnd}
         onPointerCancel={handleHoldEnd}
         className={cn(
-          "w-[42px] h-[42px] flex items-center justify-center rounded-[14px]",
+          "flex items-center justify-center",
+          sm ? "w-[30px] h-[30px] rounded-[10px]" : "w-[42px] h-[42px] rounded-[14px]",
           "bg-[#242427] text-neutral-300 border border-white/[0.05]",
           "hover:bg-[#2d2d31] hover:text-white hover:border-white/[0.1]",
           "active:scale-[0.96] active:bg-[#1e1e21]",
@@ -536,7 +549,7 @@ export function RollingCounter({
           "disabled:opacity-30 disabled:pointer-events-none"
         )}
       >
-        <Plus className="w-[18px] h-[18px] stroke-[2.4]" />
+        <Plus className={cn(sm ? "w-[14px] h-[14px]" : "w-[18px] h-[18px]", "stroke-[2.4]")} />
       </button>
     </div>
   );
