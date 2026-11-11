@@ -270,8 +270,8 @@ function useCountdown(targetIso: string, serverNowIso: string) {
   return Math.max(0, Date.parse(targetIso) - now);
 }
 
-// "+ / − only" items can't be typed, so they start at 0 instead of empty.
-const blank = (i: { buttons_only?: number }) => (i.buttons_only ? "0" : "");
+// Every item starts at 0 (stores change what they need).
+const blank = (_i: { buttons_only?: number }) => "0";
 /** 0.5 → 1 digit after the point, 480 → none. */
 const decimalsOf = (step: number) => (Number.isInteger(step) ? 0 : Math.min(3, String(step).split(".")[1]?.length ?? 0));
 const isHigh = (v: number | null, last: number | null | undefined) => v != null && last != null && v > Math.max(last * 3, last + 4);
@@ -441,6 +441,7 @@ function OrderForm({ data, lang, toast, onReload, onSwitch }: { data: OrderData;
                     label={name(it)}
                     value={v ?? 0}
                     unset={v === null}
+                    editable={!it.buttons_only}
                     min={0}
                     step={it.step}
                     decimals={decimalsOf(it.step)}
