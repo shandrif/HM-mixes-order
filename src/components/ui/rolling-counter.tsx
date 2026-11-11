@@ -8,6 +8,7 @@
 //  - `touch-none` on the digit area so dragging on a phone changes the number
 //    instead of scrolling the page.
 //  - `size="sm"`: a compact version for lists (default size unchanged).
+//  - `scrubbable={false}`: turn off drag-to-change (avoids accidental changes).
 //  - `editable`: tap the number to type a value (Enter/blur saves, Esc cancels).
 //  - controlled value changes from outside (e.g. "Copy last order") now roll the
 //    digits too (the original compared against the already-updated render value).
@@ -35,6 +36,8 @@ export interface RollingCounterProps {
   unset?: boolean;
   /** "sm" = compact (30px buttons) */
   size?: "default" | "sm";
+  /** Drag the number up/down to change it (default true) */
+  scrubbable?: boolean;
   /** Tap the number to type a value */
   editable?: boolean;
   /** Spring bounce elasticity (0 to 100) */
@@ -85,6 +88,7 @@ export function RollingCounter({
   decimals = 0,
   unset = false,
   editable = false,
+  scrubbable = true,
   size = "default",
   bounce = 40,
   stagger = 32,
@@ -312,7 +316,7 @@ export function RollingCounter({
     const dt = Math.max(1, now - track.time);
     track.time = now;
     track.vel = track.vel * 0.6 + (dy / dt) * 0.4;
-    track.acc = processOffset(track.acc + dy);
+    if (scrubbable) track.acc = processOffset(track.acc + dy);
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
@@ -327,7 +331,7 @@ export function RollingCounter({
       startEditing();
       return;
     }
-    if (isReducedMotion()) return;
+    if (!scrubbable || isReducedMotion()) return;
 
     let v = performance.now() - track.time > 80 ? 0 : track.vel * 16.67;
     if (Math.abs(v) < 1.5) return;
@@ -352,7 +356,12 @@ export function RollingCounter({
     if (!save) return;
     // Arabic-Indic digits → 0-9, then keep only digits and one point.
     const raw = draft.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/[٫,]/g, ".").replace(/[^\d.]/g, "");
-    if (raw === "" || raw === ".") return;
+    // Deleted everything = 0 (the minimum).
+    if (raw === "" || raw === ".") {
+      if (valRef.current !== minU) commitValue(minU);
+      else if (unset) onChange?.(minU / scale);
+      return;
+    }
     const n = Number(raw);
     if (!Number.isFinite(n)) return;
     const units = Math.round(toU(n) / stepU) * stepU;
@@ -444,7 +453,8 @@ export function RollingCounter({
         onPointerCancel={onPointerUp}
         className={cn(
           sm ? "h-[30px] min-w-[40px] px-2 text-[17px]" : "h-[42px] min-w-[56px] px-3.5 text-[25px]",
-          "relative flex items-center justify-center cursor-ns-resize overflow-hidden touch-none",
+          "relative flex items-center justify-center overflow-hidden",
+          scrubbable ? "cursor-ns-resize touch-none" : editable ? "cursor-text" : "cursor-default",
           "font-sans font-semibold leading-none text-white tracking-[-0.03em] tabular-nums select-none",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/20 rounded-lg",
           "antialiased transition-opacity duration-200",
@@ -459,6 +469,7 @@ export function RollingCounter({
             enterKeyHint="done"
             aria-label={label}
             value={draft}
+            placeholder="0"
             onChange={(e) => setDraft(e.target.value)}
             onFocus={(e) => e.currentTarget.select()}
             onBlur={() => finishEditing(true)}
