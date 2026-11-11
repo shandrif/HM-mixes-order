@@ -831,38 +831,3 @@ h1 { letter-spacing: -0.02em; }
 html { background: var(--bg); }
 body { background: transparent !important; }
 .login-page .login-card { background: rgba(255, 253, 249, 0.97); }
-
-/* ═════════ Interactive background (driven by src/ambient.ts) ═════════ */
-.ambient i { animation: none !important; }
-.amb-warm, .amb-cool { position: absolute; inset: 0; will-change: opacity; }
-.amb-warm i:nth-child(1) { top: -30vmax; left: -25vmax; }
-.amb-cool { opacity: 0.25; }
-.amb-cool i { position: absolute; border-radius: 50%; will-change: transform; }
-.amb-cool i:nth-child(1) { width: 70vmax; height: 70vmax; top: 10%; right: -30vmax; background: radial-gradient(circle, rgba(132, 198, 178, 0.6) 0%, rgba(132, 198, 178, 0) 62%); }
-.amb-cool i:nth-child(2) { width: 60vmax; height: 60vmax; bottom: -30vmax; left: -15vmax; background: radial-gradient(circle, rgba(96, 160, 150, 0.42) 0%, rgba(96, 160, 150, 0) 62%); }
-.amb-cursor {
-  position: absolute; top: 0; left: 0; width: 560px; height: 560px; border-radius: 50%; pointer-events: none;
-  background: radial-gradient(circle, rgba(222, 186, 132, 0.5) 0%, rgba(222, 186, 132, 0.18) 35%, rgba(222, 186, 132, 0) 65%);
-  opacity: 0; transition: opacity 500ms ease; will-change: transform, opacity;
-}
-.amb-cursor.on { opacity: 1; }
-
-/* Spotlight that follows the cursor across cards and heroes */
-.m-hero, .sp-head, .page-head.hero {
-  background-image:
-    radial-gradient(520px circle at var(--mx, 85%) var(--my, -40%), rgba(222, 186, 132, 0.26), transparent 45%),
-    linear-gradient(135deg, #1f1a17 0%, #2a221c 55%, #3b2d20 100%);
-}
-@media (hover: hover) and (pointer: fine) {
-  .card, .stat, .sp-card, .m-preview-link {
-    background-image: radial-gradient(380px circle at var(--mx, -500px) var(--my, -500px), rgba(212, 179, 139, 0.18), transparent 42%);
-  }
-}
-.amb-cool i:nth-child(1) { left: auto; bottom: auto; }
-.amb-cool i:nth-child(2) { top: auto; right: auto; }
-/* Stronger, more visible lights */
-.amb-warm i:nth-child(1) { background: radial-gradient(circle, rgba(214, 170, 112, 0.7) 0%, rgba(214, 170, 112, 0) 62%); }
-.amb-warm i:nth-child(3) { background: radial-gradient(circle, rgba(240, 200, 150, 0.62) 0%, rgba(240, 200, 150, 0) 60%); }
-.amb-cool i:nth-child(1) { background: radial-gradient(circle, rgba(110, 190, 168, 0.72) 0%, rgba(110, 190, 168, 0) 62%); }
-.amb-cool i:nth-child(2) { background: radial-gradient(circle, rgba(80, 150, 140, 0.55) 0%, rgba(80, 150, 140, 0) 62%); }
-.amb-cursor { width: 640px; height: 640px; background: radial-gradient(circle, rgba(226, 178, 112, 0.62) 0%, rgba(226, 178, 112, 0.22) 34%, rgba(226, 178, 112, 0) 66%); }
