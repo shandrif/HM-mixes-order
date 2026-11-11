@@ -7,6 +7,7 @@
 //  - `unset`: render a faint 0 for "not entered yet"; pressing − records min.
 //  - `touch-none` on the digit area so dragging on a phone changes the number
 //    instead of scrolling the page.
+//  - `editable`: tap the number to type a value (Enter/blur saves, Esc cancels).
 //  - controlled value changes from outside (e.g. "Copy last order") now roll the
 //    digits too (the original compared against the already-updated render value).
 
@@ -31,6 +32,8 @@ export interface RollingCounterProps {
   decimals?: number;
   /** Show as "not entered yet" (faint digits); − then sets the minimum */
   unset?: boolean;
+  /** Tap the number to type a value */
+  editable?: boolean;
   /** Spring bounce elasticity (0 to 100) */
   bounce?: number;
   /** Stagger delay between columns in ms */
@@ -78,6 +81,7 @@ export function RollingCounter({
   step = 1,
   decimals = 0,
   unset = false,
+  editable = false,
   bounce = 40,
   stagger = 32,
   blur = 24,
@@ -118,7 +122,10 @@ export function RollingCounter({
     acc: number;
     vel: number;
     time: number;
+    moved: number;
   } | null>(null);
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState("");
 
   const tuning = React.useRef({ bounce, stagger, blur });
   tuning.current = { bounce, stagger, blur };
@@ -284,7 +291,7 @@ export function RollingCounter({
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {}
-    dragTracker.current = { y: e.clientY, acc: 0, vel: 0, time: performance.now() };
+    dragTracker.current = { y: e.clientY, acc: 0, vel: 0, time: performance.now(), moved: 0 };
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -293,6 +300,7 @@ export function RollingCounter({
     const now = performance.now();
     const dy = track.y - e.clientY;
     track.y = e.clientY;
+    track.moved += Math.abs(dy);
     const dt = Math.max(1, now - track.time);
     track.time = now;
     track.vel = track.vel * 0.6 + (dy / dt) * 0.4;
@@ -305,7 +313,13 @@ export function RollingCounter({
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {}
-    if (!track || isReducedMotion()) return;
+    if (!track) return;
+    // A tap (no drag) opens typing.
+    if (editable && e.type === "pointerup" && track.moved < 6) {
+      startEditing();
+      return;
+    }
+    if (isReducedMotion()) return;
 
     let v = performance.now() - track.time > 80 ? 0 : track.vel * 16.67;
     if (Math.abs(v) < 1.5) return;
@@ -317,6 +331,29 @@ export function RollingCounter({
       if (Math.abs(v) > 0.35) flingRaf.current = requestAnimationFrame(coast);
     };
     flingRaf.current = requestAnimationFrame(coast);
+  };
+
+  /* ── Typing ── */
+  const startEditing = () => {
+    if (disabled) return;
+    setDraft(unset ? "" : String(valRef.current / scale));
+    setEditing(true);
+  };
+  const finishEditing = (save: boolean) => {
+    setEditing(false);
+    if (!save) return;
+    // Arabic-Indic digits → 0-9, then keep only digits and one point.
+    const raw = draft.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/[٫,]/g, ".").replace(/[^\d.]/g, "");
+    if (raw === "" || raw === ".") return;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return;
+    const units = Math.round(toU(n) / stepU) * stepU;
+    const next = clamp(units, minU, maxU);
+    if (next === valRef.current) {
+      if (unset) onChange?.(next / scale);
+      return;
+    }
+    commitValue(next);
   };
 
   const shownDigits = Math.max(1 + decimals, String(activeValue).length);
@@ -386,6 +423,10 @@ export function RollingCounter({
           } else if (e.key === "End") {
             e.preventDefault();
             commitValue(maxU);
+          } else if (editable && (e.key === "Enter" || /^[0-9٠-٩]$/.test(e.key))) {
+            e.preventDefault();
+            startEditing();
+            if (e.key !== "Enter") setDraft(e.key);
           }
         }}
         onPointerDown={onPointerDown}
@@ -393,13 +434,38 @@ export function RollingCounter({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         className={cn(
-          "h-[42px] min-w-[56px] px-3.5 flex items-center justify-center cursor-ns-resize overflow-hidden touch-none",
+          "relative h-[42px] min-w-[56px] px-3.5 flex items-center justify-center cursor-ns-resize overflow-hidden touch-none",
           "font-sans font-semibold text-[25px] leading-none text-white tracking-[-0.03em] tabular-nums select-none",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/20 rounded-lg",
           "antialiased transition-opacity duration-200",
-          unset && "opacity-35"
+          unset && !editing && "opacity-35"
         )}
       >
+        {editing && (
+          <input
+            autoFocus
+            type="text"
+            inputMode={decimals > 0 ? "decimal" : "numeric"}
+            enterKeyHint="done"
+            aria-label={label}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onFocus={(e) => e.currentTarget.select()}
+            onBlur={() => finishEditing(true)}
+            onPointerDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") e.currentTarget.blur();
+              else if (e.key === "Escape") {
+                finishEditing(false);
+              }
+            }}
+            className={cn(
+              "absolute inset-0 z-10 w-full h-full rounded-lg bg-[#242427] text-center text-white",
+              "font-semibold text-[22px] tabular-nums outline-none ring-1 ring-white/25"
+            )}
+          />
+        )}
         {Array.from({ length: PLACES }, (_, i) => {
           const p = PLACES - 1 - i;
           const isVisible = p < shownDigits;
