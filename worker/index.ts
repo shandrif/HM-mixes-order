@@ -62,7 +62,7 @@ app.use("*", async (c, next) => {
   const ctx: Ctx = { db: c.env.DB, cfg, open_day };
   await rollover(ctx);
   c.set("ctx", ctx);
-  const isAdminPath = c.req.path.startsWith("/api/admin");
+  const isAdminPath = c.req.path.startsWith("/api/admin") || c.req.path === "/api/session/admin";
   c.set("session", await verifySession(getCookie(c, isAdminPath ? "hm_admin" : "hm_store"), cfg.secret));
   await next();
   c.header("Cache-Control", "no-store");
@@ -179,6 +179,12 @@ function requireStore(c: C): Store {
 }
 
 app.get("/store/order", async (c) => {
+  // ?probe=1: the store page asking "am I signed in?" — answer null instead of
+  // a 401 so a normal first visit doesn't log a console error.
+  if (c.req.query("probe")) {
+    const s = c.var.session;
+    if (!s || s.kind !== "store" || !c.var.ctx.cfg.stores.some((x) => x.id === Number(s.sub) && x.active)) return c.json(null);
+  }
   const store = requireStore(c);
   const { db, cfg } = c.var.ctx;
   const od = openDay(cfg.settings);
@@ -302,6 +308,14 @@ app.post("/admin/setup", async (c) => {
 app.post("/admin/logout", (c) => {
   deleteCookie(c, "hm_admin", { path: "/" });
   return c.json({ ok: true });
+});
+
+// "Am I signed in as admin?" — null instead of a 401, so opening /admin
+// signed out doesn't log a console error. (Outside the /admin/* guard.)
+app.get("/session/admin", (c) => {
+  const s = c.var.session;
+  const ok = !!s && s.kind === "admin" && c.var.ctx.cfg.admins.some((a) => a.email === s.sub);
+  return c.json(ok ? { email: s!.sub } : null);
 });
 
 // Guard all other admin routes.

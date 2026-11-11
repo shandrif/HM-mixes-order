@@ -69,7 +69,12 @@ export default function StorePage() {
 
   const load = useCallback(async () => {
     try {
-      setOrder(await api<OrderData>("/store/order"));
+      const o = await api<OrderData | null>("/store/order?probe=1");
+      if (!o) {
+        setState("login");
+        return;
+      }
+      setOrder(o);
       setState("order");
     } catch (e) {
       // 401 = not signed in (or store deactivated): show the branch picker.

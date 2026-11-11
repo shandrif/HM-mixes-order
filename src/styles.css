@@ -799,7 +799,7 @@ button, .btn, .m-branch, .m-step, .m-chip-btn, .admin-nav nav a { -webkit-user-s
 .m-shell .m-items { gap: 12px; }
 .m-shell .m-item {
   border-radius: 22px; min-height: 76px;
-  animation: clay-pop 520ms var(--spring) both; animation-delay: calc(var(--i, 0) * 45ms);
+  animation: clay-pop 420ms var(--spring) both; animation-delay: calc(var(--i, 0) * 28ms);
 }
 .m-shell .m-item.empty { border: 0; box-shadow: var(--clay-sunk); background: #f6efe6; }
 .m-shell .m-item.high { box-shadow: var(--clay-drop), var(--clay-lift), 0 0 0 3px #f6d58f; }
@@ -898,11 +898,11 @@ button, .btn, .m-branch, .m-step, .m-chip-btn, .admin-nav nav a { -webkit-user-s
 /* Totals + branch cards */
 .m-shell .sp-totals { border: 0; border-radius: 22px; background: var(--clay); box-shadow: var(--clay-drop), var(--clay-lift); }
 .m-shell .sp-totals li + li { border-top: 1px solid rgba(166, 124, 72, 0.14); }
-.m-shell .sp-totals li { animation: clay-pop 520ms var(--spring) both; animation-delay: calc(var(--i, 0) * 35ms); }
+.m-shell .sp-totals li { animation: clay-pop 420ms var(--spring) both; animation-delay: calc(var(--i, 0) * 28ms); }
 .m-shell .sp-cards { gap: 12px; }
 .m-shell .sp-card {
   border: 0; border-radius: 22px; padding: 14px 16px; background: var(--clay); box-shadow: var(--clay-drop), var(--clay-lift);
-  animation: clay-pop 520ms var(--spring) both; animation-delay: calc(var(--i, 0) * 40ms);
+  animation: clay-pop 420ms var(--spring) both; animation-delay: calc(var(--i, 0) * 28ms);
 }
 .m-shell .sp-card.none { opacity: 1; background: #f6efe6; box-shadow: var(--clay-sunk); border: 0; }
 .m-shell .sp-card dl > div { border-bottom: 1px dashed rgba(166, 124, 72, 0.22); }
@@ -1015,4 +1015,20 @@ button, .btn, .m-branch, .m-step, .m-chip-btn, .admin-nav nav a { -webkit-user-s
 
 @media (prefers-reduced-motion: reduce) {
   .login-page .login-card, .admin-shell .stat, .admin-shell .page > .card, .admin-shell .page > section.card { animation: none; }
+}
+
+/* ── Glitch fixes ── */
+/* Cards pop only with their page (page-enter), not every time React re-mounts
+   one (filters, tab switches, reloads) — that replay looked like a glitch. */
+.admin-shell .page > .card, .admin-shell .page > section.card { animation: none; }
+/* Lists that are reloading stay in place, just dimmed. */
+.is-loading { opacity: 0.55; transition: opacity 160ms var(--ease-out); pointer-events: none; }
+:not(.is-loading).table-wrap { transition: opacity 160ms var(--ease-out); }
+/* Order item shake: keep clay-pop in slot 1 so removing .shake doesn't replay the pop. */
+.m-shell .m-item.shake { animation: clay-pop 420ms var(--spring) both, m-shake 420ms var(--ease-out); animation-delay: calc(var(--i, 0) * 28ms), 0ms; }
+/* Phones: list rows become separate clay cards (wrapper stays transparent). */
+@media (max-width: 760px) {
+  .admin-shell .table-wrap.card.flush:has(> table.stack) { background: transparent; box-shadow: none; border-radius: 0; overflow: visible; }
+  .admin-shell table.list.stack tr { border: 0; border-radius: 20px; background: var(--clay); box-shadow: var(--clay-drop), var(--clay-lift); }
+  .admin-shell table.list.stack td.row-actions { border-top-color: rgba(166, 124, 72, 0.16); }
 }
