@@ -1,6 +1,7 @@
 // Read-only order sheet for stores: everyone's order for the open day (updating
 // as branches submit) or the last locked, reviewed day. No editing here.
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ClayBackdrop } from "@/components/ClayBackdrop";
 import { api, fmtCutoff, fmtDateTime, fmtQty, fmtTime } from "../api";
 import { useLang, type Lang } from "../i18n";
 import { navigate } from "../router";
@@ -63,6 +64,7 @@ export default function SheetPreview() {
 
   return (
     <div className="m-shell">
+      <ClayBackdrop />
       <header className="m-appbar">
         <button className="m-chip-btn" onClick={() => navigate("/")} aria-label={t.backToOrder}>
           ‹ {t.backToOrder}

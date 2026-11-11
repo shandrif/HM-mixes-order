@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ClayBackdrop } from "@/components/ClayBackdrop";
 import { api, ApiError, fmtCutoff, fmtQty, fmtTime } from "../api";
 import { strings, useLang, type Lang } from "../i18n";
 import { navigate } from "../router";
@@ -83,6 +84,7 @@ export default function StorePage() {
 
   return (
     <div className="m-shell">
+      <ClayBackdrop />
       <header className="m-appbar">
         <div className="m-brand">
           <img src="/logo.svg" alt="" width={30} height={30} />
