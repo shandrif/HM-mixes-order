@@ -250,6 +250,7 @@ button, a, input { touch-action: manipulation; }
 }
 .m-val:focus { outline: none; border-color: var(--ink); }
 .m-stepper.locked .m-val { width: 70px; border-color: transparent; background: transparent; pointer-events: none; user-select: none; caret-color: transparent; }
+.m-counter { flex: none; }
 .m-val.pop { animation: m-pop 220ms var(--ease-out); }
 .m-hint { text-align: center; font-size: 0.78rem; color: var(--muted); margin: 14px 0 0; }
 

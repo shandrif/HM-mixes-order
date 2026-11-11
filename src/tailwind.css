@@ -1,0 +1,8 @@
+/* Tailwind v4 for shadcn-style components (src/components/ui).
+   Only the theme tokens and utility classes are loaded — NOT Tailwind's
+   preflight reset — so the app's existing hand-written styles are untouched.
+   Utilities live in their own cascade layer. */
+@layer theme, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@source "./components";
