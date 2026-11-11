@@ -505,11 +505,8 @@ a.stat, .issue-list li { transition: transform 200ms var(--ease-out), border-col
 /* Native-app feel: no text selection / iOS callout on long-press of controls. */
 button, .btn, .m-branch, .m-step, .m-chip-btn, .admin-nav nav a { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 
-/* Ripple host + ripple */
+/* Press-feedback hosts (clay squash; ripple removed) */
 .btn, .m-primary, .m-secondary, .m-chip-btn, .m-branch, .admin-nav nav a, a.stat, .seg button, [data-ripple] { position: relative; overflow: hidden; isolation: isolate; }
-.ripple { position: absolute; border-radius: 50%; background: currentColor; pointer-events: none; z-index: -1; will-change: transform, opacity; }
-.btn.primary .ripple, .m-primary .ripple, .admin-nav nav a .ripple { background: #fff; }
-.admin-nav nav a.active .ripple { background: var(--ink); }
 
 /* Visible, smooth keyboard focus */
 :where(button, a, input, select, textarea):focus-visible { outline: 3px solid var(--gold-soft); outline-offset: 2px; transition: outline-offset 120ms var(--ease-out); }
@@ -930,4 +927,92 @@ button, .btn, .m-branch, .m-step, .m-chip-btn, .admin-nav nav a { -webkit-user-s
 
 @media (prefers-reduced-motion: reduce) {
   .m-shell .sp-head::before, .m-shell .sp-head::after, .m-shell .sp-card, .m-shell .sp-totals li { animation: none; }
+}
+
+/* ═════════════════════ Claymorphism: admin + admin sign-in ═════════════════════ */
+.admin-shell, .login-page {
+  --clay-bg: #f3eadf;
+  --clay: #fcf7f0;
+  --clay-drop: 0 10px 22px -8px rgba(138, 100, 49, 0.28), 0 3px 6px -2px rgba(138, 100, 49, 0.12);
+  --clay-lift: inset 3px 4px 6px rgba(255, 255, 255, 0.95), inset -4px -5px 10px rgba(166, 124, 72, 0.16);
+  --clay-sunk: inset 3px 4px 8px rgba(166, 124, 72, 0.2), inset -3px -3px 6px rgba(255, 255, 255, 0.9);
+  --clay-dark-lift: inset 2px 3px 5px rgba(255, 255, 255, 0.14), inset -3px -4px 8px rgba(0, 0, 0, 0.45);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.admin-shell { background: var(--clay-bg); }
+.admin-main { isolation: isolate; background: var(--clay-bg) !important; }
+.admin-nav { z-index: 2; }
+
+/* Sign-in: clay card floating over drifting pebbles */
+.login-page { position: relative; isolation: isolate; background: var(--clay-bg); }
+.login-page .login-card {
+  border: 0; border-radius: 30px; padding: 26px 24px; background: var(--clay);
+  box-shadow: 0 24px 50px -20px rgba(138, 100, 49, 0.45), var(--clay-drop), var(--clay-lift);
+  animation: clay-pop 620ms var(--spring) both;
+}
+.login-page .brand.dark img { border-radius: 14px; box-shadow: var(--clay-dark-lift), 0 6px 12px -6px rgba(0, 0, 0, 0.5); }
+
+/* Surfaces */
+:is(.admin-shell, .login-page) :is(.card, .stat) { border: 0; border-radius: 22px; background: var(--clay); box-shadow: var(--clay-drop), var(--clay-lift); }
+.admin-shell .card.flush { overflow: hidden; }
+.admin-shell .stat { padding: 16px 18px; animation: clay-pop 520ms var(--spring) both; transition: transform 420ms var(--spring); }
+.admin-shell .stats .stat:nth-child(2) { animation-delay: 50ms; }
+.admin-shell .stats .stat:nth-child(3) { animation-delay: 100ms; }
+.admin-shell .stats .stat:nth-child(4) { animation-delay: 150ms; }
+.admin-shell .stat.ok { border-left: 0; box-shadow: var(--clay-drop), var(--clay-lift), inset 5px 0 0 var(--ok); }
+.admin-shell .stat.critical { border-left: 0; box-shadow: var(--clay-drop), var(--clay-lift), inset 5px 0 0 var(--critical); }
+.admin-shell .stat.warning { border-left: 0; box-shadow: var(--clay-drop), var(--clay-lift), inset 5px 0 0 var(--warning); }
+.admin-shell a.stat:active { transform: scale(0.97, 0.94); transition-duration: 120ms; }
+.admin-shell .page > .card, .admin-shell .page > section.card { animation: clay-pop 520ms var(--spring) both; animation-delay: 120ms; }
+.admin-shell .notice { border: 0; border-radius: 18px; box-shadow: var(--clay-sunk); }
+
+/* Inputs pressed into the clay */
+:is(.admin-shell, .login-page) .input {
+  border: 0; border-radius: 14px; background: #f6efe6; box-shadow: var(--clay-sunk);
+  transition: box-shadow 220ms var(--ease-out), background-color 200ms;
+}
+:is(.admin-shell, .login-page) .input:focus { outline: none; background: #fff; box-shadow: var(--clay-sunk), 0 0 0 3px rgba(212, 179, 139, 0.55); }
+:is(.admin-shell, .login-page) .input:-webkit-autofill { -webkit-box-shadow: var(--clay-sunk), inset 0 0 0 40px #f6efe6; -webkit-text-fill-color: var(--ink); }
+
+/* Buttons: puffy, squash on press, spring back */
+:is(.admin-shell, .login-page) .btn:not(.link):not(.ghost):not(.primary) {
+  border: 0; border-radius: 16px; background: var(--clay); box-shadow: var(--clay-drop), var(--clay-lift);
+  transition: transform 420ms var(--spring), box-shadow 200ms var(--ease-out), background-color 160ms;
+}
+:is(.admin-shell, .login-page) .btn.primary { border: 0; border-radius: 16px; background: var(--ink); color: #fff; transition: transform 420ms var(--spring), box-shadow 200ms var(--ease-out), background-color 160ms; box-shadow: var(--clay-dark-lift), 0 10px 20px -10px rgba(31, 26, 23, 0.7); }
+:is(.admin-shell, .login-page) .btn.ghost:not(.on-dark) { border-radius: 14px; border-color: rgba(166, 124, 72, 0.25); }
+:is(.admin-shell, .login-page) .btn:not(.link):active:not(:disabled) { transform: scale(0.95, 0.9); transition-duration: 120ms; }
+.login-page .btn.primary { min-height: 50px; border-radius: 18px; }
+
+/* Chips, pills, segmented controls */
+.admin-shell .chip { border: 0; padding: 5px 12px; box-shadow: inset 1px 2px 3px rgba(255, 255, 255, 0.85), inset -2px -3px 5px rgba(161, 92, 7, 0.14), 0 3px 6px -3px rgba(138, 100, 49, 0.35); }
+.admin-shell .chip.ok { box-shadow: inset 1px 2px 3px rgba(255, 255, 255, 0.85), inset -2px -3px 5px rgba(30, 122, 85, 0.16), 0 3px 6px -3px rgba(30, 122, 85, 0.35); }
+.admin-shell .pill { box-shadow: inset 1px 2px 3px rgba(255, 255, 255, 0.8), inset -2px -2px 4px rgba(0, 0, 0, 0.07); }
+.admin-shell .seg { display: inline-flex; gap: 4px; padding: 4px; border: 0; border-radius: 16px; overflow: visible; background: #efe5d8; box-shadow: var(--clay-sunk); }
+.admin-shell .seg button { border-radius: 12px; transition: transform 420ms var(--spring), background-color 200ms, color 200ms; }
+.admin-shell .seg button.on { background: var(--ink); color: #fff; box-shadow: var(--clay-dark-lift), 0 6px 12px -6px rgba(31, 26, 23, 0.7); }
+
+/* Sidebar: dark clay with a raised gold pill for the current page */
+.admin-nav { box-shadow: inset -3px 0 8px rgba(0, 0, 0, 0.35), inset 2px 0 4px rgba(255, 255, 255, 0.05); }
+.admin-nav nav a { border-radius: 14px; transition: transform 420ms var(--spring), background-color 200ms, color 200ms, box-shadow 200ms; }
+.admin-nav nav a.active { box-shadow: inset 2px 3px 4px rgba(255, 255, 255, 0.55), inset -3px -4px 6px rgba(138, 100, 49, 0.45), 0 6px 14px -6px rgba(0, 0, 0, 0.6); }
+.admin-nav nav a:active { transform: scale(0.96, 0.92); transition-duration: 120ms; }
+@media (max-width: 760px) {
+  .admin-nav nav a.active { box-shadow: none; }
+  .admin-nav nav a.active .nav-icon { filter: drop-shadow(0 2px 3px rgba(212, 179, 139, 0.45)); }
+}
+
+/* Tables */
+.admin-shell table.list th { background: #f3eadf; box-shadow: inset 0 2px 3px rgba(255, 255, 255, 0.8), inset 0 -2px 3px rgba(166, 124, 72, 0.12); }
+.admin-shell table.list th, .admin-shell table.list td { border-bottom-color: rgba(166, 124, 72, 0.14); }
+.admin-shell .sheet-wrap { border: 0; border-radius: 22px; background: var(--clay); box-shadow: var(--clay-drop), var(--clay-lift); padding: 6px; }
+.admin-shell table.sheet th, .admin-shell table.sheet td { border-color: rgba(166, 124, 72, 0.14); }
+.admin-shell table.sheet thead th { box-shadow: inset 0 2px 3px rgba(255, 255, 255, 0.55), inset 0 -3px 5px rgba(47, 122, 99, 0.22); }
+.admin-shell table.sheet thead th:first-child { border-top-left-radius: 16px; }
+.admin-shell table.sheet thead th:last-child { border-top-right-radius: 16px; }
+.admin-shell table.sheet tfoot th, .admin-shell table.sheet tfoot td { box-shadow: inset 0 3px 4px rgba(255, 255, 255, 0.45), inset 0 -2px 4px rgba(138, 100, 49, 0.25); }
+.admin-shell .save-bar { border-radius: 20px; box-shadow: var(--clay-dark-lift), 0 12px 24px -12px rgba(0, 0, 0, 0.6); }
+
+@media (prefers-reduced-motion: reduce) {
+  .login-page .login-card, .admin-shell .stat, .admin-shell .page > .card, .admin-shell .page > section.card { animation: none; }
 }

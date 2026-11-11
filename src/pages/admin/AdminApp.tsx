@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { ClayBackdrop } from "@/components/ClayBackdrop";
 import { api, ApiError } from "../../api";
 import { Link, navigate, useLocation } from "../../router";
 import Anomalies from "./Anomalies";
@@ -126,6 +127,7 @@ export default function AdminApp() {
         </div>
       </aside>
       <main className="admin-main">
+          <ClayBackdrop />
         <div className="page-enter" key={path}>
           {page}
         </div>
@@ -149,6 +151,7 @@ function AdminLogin({ onDone }: { onDone: (email: string) => void }) {
   if (setup === null) return <div className="center-msg">Loading…</div>;
   return (
     <div className="login-page">
+      <ClayBackdrop />
       <form
         className="card login-card"
         onSubmit={async (e) => {
