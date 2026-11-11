@@ -16,7 +16,8 @@ const SELECTOR = [
 ].join(",");
 
 // Steppers are pressed dozens of times per order: scale feedback only.
-const EXCLUDE = ".m-step, [data-no-ripple]";
+// Store screens (.m-shell) use clay squash-and-spring feedback instead.
+const EXCLUDE = ".m-step, .m-shell, [data-no-ripple]";
 
 const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
 
