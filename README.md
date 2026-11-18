@@ -100,6 +100,12 @@ Colours are taken from the current workbook (gold `#D4B38B`, cream `#F5EDE3`, mi
 - Replace `public/logo.svg` with the HM logo.
 - Edit the colour variables at the top of `src/styles.css`.
 
+## If a change doesn't appear on the site
+Every merge into `main` should start a build in **Cloudflare → Workers & Pages → hm-mixes-order → Deployments**. The newest entry there should match the newest commit on `main`.
+- **Entry says Failed:** open it and read the build log.
+- **No new entry at all:** Cloudflare didn't receive the push from GitHub. Go to **Settings → Build** and check that the Git repository shows as connected (reconnect it if it doesn't). Any new push to `main` then builds again.
+- **New entry says Ready but the page looks old:** hard-refresh the browser (Ctrl+Shift+R).
+
 ## Development
 ```bash
 npm install
