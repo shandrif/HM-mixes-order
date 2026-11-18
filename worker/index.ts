@@ -21,7 +21,6 @@ import {
   type Decision,
   type Finding,
 } from "./db";
-import { brevoEvents, buildOrderEmail, EMAIL_RE, emailConfigured, publicEmailSettings, sendBrevo } from "./email";
 import { anomaliesOf, checkDay, cutoffAt, dayDetail, decide, layoutOf, openDay, rollover, type Ctx } from "./logic";
 
 export interface Env {
@@ -624,98 +623,22 @@ app.delete("/admin/admins/:email", async (c) => {
   return c.json({ ok: true });
 });
 
-// Order email (Brevo): settings, test, and send a reviewed day.
-app.get("/admin/email", (c) => c.json(publicEmailSettings(c.var.ctx.cfg)));
-
-const parseEmails = (v: string[] | string | undefined) => {
-  const list = (Array.isArray(v) ? v : String(v ?? "").split(/[\s,;]+/)).map((x) => x.trim().toLowerCase()).filter(Boolean);
-  const bad = list.filter((x) => !EMAIL_RE.test(x));
-  if (bad.length) fail(400, `Not a valid email: ${bad.join(", ")}`);
-  if (list.length > 50) fail(400, "At most 50 recipients");
-  return [...new Set(list)];
-};
-
-app.put("/admin/email", async (c) => {
-  const b = await body<{ api_key?: string; sender_email?: string; sender_name?: string; recipients?: string[] | string }>(c);
-  const key = b.api_key?.replace(/\s+/g, "") ?? "";
-  if (key && key.startsWith("xsmtpsib-")) fail(400, "That is a Brevo SMTP key. Use an API key instead: Brevo → Settings → SMTP & API → API Keys tab → Generate a new API key (it starts with “xkeysib-”).");
-  if (key && !key.startsWith("xkeysib-")) fail(400, "That doesn't look like a Brevo API key. It should start with “xkeysib-”. Copy it again from Brevo → Settings → SMTP & API → API Keys.");
-  const recipients = parseEmails(b.recipients);
-  const sender = String(b.sender_email ?? "").trim();
-  if (sender && !EMAIL_RE.test(sender)) fail(400, "Sender email is not valid");
-  const { cfg } = await updateCfg(c.var.ctx.db, (k) => {
-    k.email = {
-      api_key: key || (k.email?.api_key ?? ""),
-      sender_email: sender,
-      sender_name: String(b.sender_name ?? "HM Mixes Order").trim().slice(0, 60) || "HM Mixes Order",
-      recipients,
-      site_url: new URL(c.req.url).origin,
-    };
-  });
-  await audit(c.var.ctx.db, actor(c), "update_email", { recipients: recipients.length });
-  return c.json(publicEmailSettings(cfg));
-});
-
-/** Check the Brevo connection with a short email (no attachment). */
-app.post("/admin/email/test", async (c) => {
-  const e = c.var.ctx.cfg.email;
-  if (!emailConfigured(e) || !e.recipients.length) fail(400, "Save the API key, sender email and recipients first.");
-  let messageId: string | null = null;
-  try {
-    messageId = await sendBrevo(e!, {
-      subject: "HM Mixes Order — test email",
-      html: `<p style="font-family:Arial,sans-serif">Brevo is connected. Reviewed orders will be sent from <b>${e!.sender_email}</b> to these recipients.</p>`,
-      to: e!.recipients,
-    });
-  } catch (err) {
-    fail(502, (err as Error).message);
-  }
-  return c.json({ ok: true, recipients: e!.recipients, message_id: messageId, sender: e!.sender_email });
-});
-
-/** What Brevo did with recent emails from this app (delivered / bounced / blocked …). */
-app.get("/admin/email/events", async (c) => {
-  const e = c.var.ctx.cfg.email;
-  if (!emailConfigured(e)) fail(400, "Save the API key and sender email first.");
-  try {
-    return c.json({ sender: e!.sender_email, events: await brevoEvents(e!) });
-  } catch (err) {
-    return fail(502, (err as Error).message);
-  }
-});
-
 /**
- * Send a reviewed day to the factory & stores. The browser builds the branded
- * .xlsx and posts it here; the Worker only forwards it (2 rows read, 1 written).
+ * Mark a reviewed day as sent (the admin downloads the Excel file and emails it
+ * from their own Outlook). { sent: false } undoes it. 1 row read, 1 written.
  */
-app.post("/admin/days/:day/send", async (c) => {
+app.post("/admin/days/:day/mark-sent", async (c) => {
   const ctx = c.var.ctx;
   const day = c.req.param("day");
-  const e = ctx.cfg.email;
-  if (!emailConfigured(e)) fail(400, "Set up the Brevo email first (Settings → Order email).");
-  const b = await body<{ recipients?: string[] | string; note?: string; filename?: string; file_base64?: string; allow_warnings?: boolean }>(c);
-  const to = parseEmails(b.recipients);
-  if (!to.length) fail(400, "Add at least one recipient.");
-  const row = await ctx.db.prepare("SELECT status, n_crit, n_warn FROM sheets WHERE day = ?").bind(day).first<{ status: string; n_crit: number; n_warn: number }>();
+  const b = await body<{ sent?: boolean }>(c);
+  const row = await ctx.db.prepare("SELECT status FROM sheets WHERE day = ?").bind(day).first<{ status: string }>();
   if (!row) fail(404, "Day not found");
   if (row!.status !== "locked") fail(409, "This day is still open for stores. Send it after the cutoff.");
-  if (row!.n_crit > 0) fail(409, `Fix or ignore the ${row!.n_crit} critical issue(s) first.`);
-  const filename = String(b.filename ?? "");
-  if (!/^[\w.\- ]{1,120}\.xlsx$/.test(filename)) fail(400, "Bad file name");
-  const file = String(b.file_base64 ?? "");
-  if (!file || file.length > 8_000_000 || !/^[A-Za-z0-9+/=]+$/.test(file)) fail(400, "The Excel file is missing or too large");
   const who = c.var.session!.sub;
-  const note = String(b.note ?? "").slice(0, 2000);
-  const mail = await buildOrderEmail(ctx, day, note, who);
-  try {
-    await sendBrevo(e!, { ...mail!, to, attachments: [{ name: filename, content: file }] });
-  } catch (err) {
-    fail(502, (err as Error).message);
-  }
-  const at = nowIso();
-  await ctx.db.prepare("UPDATE sheets SET emailed_at = ?, emailed_by = ? WHERE day = ?").bind(at, who, day).run();
-  await audit(ctx.db, actor(c), "send_order", { day, to, note: note.slice(0, 200) });
-  return c.json({ ok: true, sent: { at, by: who }, to });
+  const at = b.sent === false ? null : nowIso();
+  await ctx.db.prepare("UPDATE sheets SET emailed_at = ?, emailed_by = ? WHERE day = ?").bind(at, at ? who : null, day).run();
+  await audit(ctx.db, actor(c), at ? "mark_sent" : "unmark_sent", { day });
+  return c.json({ ok: true, sent: at ? { at, by: who } : null });
 });
 
 app.post("/admin/rollover", async (c) => {
@@ -810,6 +733,8 @@ export default {
         const ctx: Ctx = { db: env.DB, cfg, open_day };
         const r = await rollover(ctx);
         if (r.locked.length) console.log("Locked", r.locked, "open", r.open);
+        // The Brevo email feature was removed: drop its saved settings (API key) once.
+        if (cfg.email) await updateCfg(env.DB, (k) => void delete k.email);
 
       })(),
     );

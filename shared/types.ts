@@ -72,7 +72,7 @@ export interface DayDetail {
   lines: LineTuple[];
   submissions: [number, string, string][]; // [store_id, source, submitted_at]
   anomalies: Anomaly[];
-  sent: { at: string; by: string | null } | null; // emailed to factory & stores
+  sent: { at: string; by: string | null } | null; // marked as sent to factory & stores by an admin
 }
 
 export interface Settings {
