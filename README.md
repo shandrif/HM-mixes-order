@@ -67,7 +67,7 @@ Fixing a cell re-runs the checks for that day. Findings can also be marked fixed
 ## Sending the reviewed order
 Every day at 18:30 the sheet locks and comes to the admin for review. The app sends no email; the admin sends the file from their own Outlook.
 
-1. Open the locked day (Dashboard → **Review & send**). Fix or ignore the issues; the download is blocked while critical ones are open.
+1. Open the locked day (Dashboard → **Review & download**). Fix or ignore the issues; the download is blocked while critical ones are open.
 2. Click **Download Excel** (`HM_Mixes_Order_05_Nov_2026.xlsx`) and email it to the factory and stores from Outlook.
 3. Click **Mark as sent**. The dashboard then shows "Sent … by …" (**Undo sent** reverses it).
 
