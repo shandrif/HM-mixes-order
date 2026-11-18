@@ -68,7 +68,7 @@ export default function Dashboard({ overview, onChange }: { overview: Overview |
             ) : (
               <strong className="warning-text">Not sent to the factory yet.</strong>
             )}{" "}
-            <Link to={`/admin/day/${prev.day}`}>{prev.sent_at ? "Open sheet →" : "Review & send →"}</Link>
+            <Link to={`/admin/day/${prev.day}`}>{prev.sent_at ? "Open sheet →" : "Review & download →"}</Link>
           </p>
         </section>
       )}
