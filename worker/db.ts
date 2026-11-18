@@ -26,14 +26,8 @@ export interface Config {
   email?: EmailSettings;
 }
 
-/** Order email via Brevo (https://www.brevo.com). Sent by an admin after review. */
-export interface EmailSettings {
-  api_key: string; // never sent to the browser
-  sender_email: string; // must be a verified sender in Brevo
-  sender_name: string;
-  recipients: string[]; // default recipients (editable per send)
-  site_url: string; // for links in the email (taken from the admin's browser)
-}
+/** Legacy: settings of the removed Brevo email feature (deleted by the cron). */
+export type EmailSettings = Record<string, unknown>;
 
 /** Quantities for one day. */
 export interface SheetData {

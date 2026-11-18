@@ -326,51 +326,42 @@ export default function DayGrid({ day, focus, onChange }: { day: string; focus: 
   );
 }
 
-// ───────────────────────── Send the reviewed day to the factory & stores ─────────────────────────
+// ───────────────────────── Final sheet: download, then mark as sent ─────────────────────────
+// The admin emails the Excel file from their own Outlook; the app only records
+// that it went out (so the dashboard stops saying "Not sent yet").
 
-function SendBar({ data, dirty, onSent }: { data: DayDetail; dirty: boolean; onSent: (s: NonNullable<DayDetail["sent"]>) => void }) {
+function SendBar({ data, dirty, onSent }: { data: DayDetail; dirty: boolean; onSent: (s: DayDetail["sent"]) => void }) {
   const open = data.anomalies.filter((a) => a.status === "open");
   const crit = open.filter((a) => a.severity === "critical").length;
   const warn = open.filter((a) => a.severity === "warning").length;
-  const [panel, setPanel] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState("");
-  const [recipients, setRecipients] = useState("");
-  const [note, setNote] = useState("");
-  const [configured, setConfigured] = useState<boolean | null>(null);
   const [me, setMe] = useState("");
 
   useEffect(() => {
-    api<{ has_key: boolean; sender_email: string; recipients: string[] }>("/admin/email").then((e) => {
-      setConfigured(e.has_key && !!e.sender_email);
-      setRecipients(e.recipients.join("\n"));
-    });
     api<{ email: string }>("/admin/me").then((r) => setMe(r.email));
   }, []);
 
-  const build = async () => {
-    const [{ default: ExcelJS }, os, { logoPngBase64 }, prevDays] = await Promise.all([
-      import("exceljs"),
-      import("../../excel/orderSheet"),
-      import("../../logoPng"),
-      api<string[]>("/admin/export/days"),
-    ]);
-    const prevDay = prevDays.filter((d) => d < data.day).at(-1);
-    const previous = prevDay ? await api<DayDetail>(`/admin/days/${prevDay}`) : null;
-    const wb = os.buildOrderWorkbook(ExcelJS, data, { previous, sentBy: me, sentAt: new Date(), note, logoPng: await logoPngBase64() });
-    const buf = (await wb.xlsx.writeBuffer()) as ArrayBuffer;
-    return { buf, name: os.orderFileName(data.day), base64: os.bufferToBase64(buf) };
-  };
-
-  const preview = async () => {
-    setBusy("preview");
+  const download = async () => {
+    if (!crit && warn > 0 && !confirm(`${warn} warning(s) are still open on this day. Download anyway?`)) return;
+    setBusy("download");
     setErr("");
     try {
-      const f = await build();
+      const [{ default: ExcelJS }, os, { logoPngBase64 }, prevDays] = await Promise.all([
+        import("exceljs"),
+        import("../../excel/orderSheet"),
+        import("../../logoPng"),
+        api<string[]>("/admin/export/days"),
+      ]);
+      const prevDay = prevDays.filter((d) => d < data.day).at(-1);
+      const previous = prevDay ? await api<DayDetail>(`/admin/days/${prevDay}`) : null;
+      const wb = os.buildOrderWorkbook(ExcelJS, data, { previous, sentBy: me, sentAt: new Date(), note: "", logoPng: await logoPngBase64() });
+      const buf = (await wb.xlsx.writeBuffer()) as ArrayBuffer;
       const a = document.createElement("a");
-      a.href = URL.createObjectURL(new Blob([f.buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
-      a.download = f.name;
+      a.href = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      a.download = os.orderFileName(data.day);
       a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
     } catch (e) {
       setErr((e as Error).message);
     } finally {
@@ -378,18 +369,12 @@ function SendBar({ data, dirty, onSent }: { data: DayDetail; dirty: boolean; onS
     }
   };
 
-  const send = async () => {
-    if (warn > 0 && !confirm(`${warn} warning(s) are still open on this day. Send anyway?`)) return;
-    setBusy("send");
+  const mark = async (sent: boolean) => {
+    setBusy("mark");
     setErr("");
     try {
-      const f = await build();
-      const r = await api<{ sent: NonNullable<DayDetail["sent"]>; to: string[] }>(`/admin/days/${data.day}/send`, {
-        body: { recipients, note, filename: f.name, file_base64: f.base64 },
-      });
+      const r = await api<{ sent: DayDetail["sent"] }>(`/admin/days/${data.day}/mark-sent`, { body: { sent } });
       onSent(r.sent);
-      setPanel(false);
-      alert(`Sent to ${r.to.length} recipient(s).`);
     } catch (e) {
       setErr((e as Error).message);
     } finally {
@@ -397,63 +382,34 @@ function SendBar({ data, dirty, onSent }: { data: DayDetail; dirty: boolean; onS
     }
   };
 
+  const blocked = crit > 0 || dirty;
   return (
     <div className={"send-bar" + (data.sent ? " sent" : crit ? " blocked" : " ready")}>
       <div>
         <strong>{data.sent ? "✓ Sent to factory & stores" : crit ? "Review needed before sending" : "Ready to send"}</strong>
         <span className="muted small">
           {data.sent
-            ? ` ${fmtDateTime(data.sent.at)}${data.sent.by ? ` by ${data.sent.by}` : ""}. You can send again after changes.`
+            ? ` Marked ${fmtDateTime(data.sent.at)}${data.sent.by ? ` by ${data.sent.by}` : ""}.`
             : crit
               ? ` ${crit} critical issue(s) to fix or ignore${warn ? `, ${warn} warning(s)` : ""}.`
-              : warn
-                ? ` ${warn} warning(s) still open — check them or send anyway.`
-                : " All checks are clear."}
+              : ` Download the Excel file, email it from Outlook, then mark it as sent.${warn ? ` ${warn} warning(s) still open.` : ""}`}
         </span>
       </div>
       <div className="head-actions">
-        <button className="btn ghost small" onClick={preview} disabled={!!busy}>
-          {busy === "preview" ? "Building…" : "⤓ Preview Excel"}
+        <button className={"btn small " + (data.sent ? "ghost" : "primary")} onClick={download} disabled={!!busy || blocked} title={dirty ? "Save your changes first" : crit ? "Fix the critical issues first" : ""}>
+          {busy === "download" ? "Building…" : "⤓ Download Excel"}
         </button>
-        <button className="btn primary small" onClick={() => setPanel(true)} disabled={!!busy || crit > 0 || dirty} title={dirty ? "Save your changes first" : crit ? "Fix the critical issues first" : ""}>
-          {data.sent ? "Send again" : "Send to factory & stores"}
-        </button>
+        {data.sent ? (
+          <button className="btn ghost small" onClick={() => mark(false)} disabled={!!busy}>
+            Undo sent
+          </button>
+        ) : (
+          <button className="btn small" onClick={() => mark(true)} disabled={!!busy || blocked}>
+            {busy === "mark" ? "Saving…" : "✓ Mark as sent"}
+          </button>
+        )}
       </div>
-      {panel && (
-        <div className="modal-back" onClick={() => !busy && setPanel(false)}>
-          <div className="card modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Send order">
-            <h2>Send order for {formatDayLong(data.day)}</h2>
-            {configured === false ? (
-              <p className="notice">
-                Set up the Brevo email first: <Link to="/admin/settings">Settings → Order email</Link>.
-              </p>
-            ) : (
-              <>
-                <p className="muted small">A branded Excel file (Order sheet + Factory summary) is attached to a short email with the totals.</p>
-                <label className="field">
-                  <span>Send to (one email per line)</span>
-                  <textarea className="input" rows={5} value={recipients} onChange={(e) => setRecipients(e.target.value)} />
-                  <small className="muted">Defaults come from Settings; changes here apply to this send only.</small>
-                </label>
-                <label className="field">
-                  <span>Note (optional, shown in the email and the Excel file)</span>
-                  <textarea className="input" rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Rawabi's Vanilla corrected from 40 to 4 after calling the branch." />
-                </label>
-              </>
-            )}
-            {err && <p className="error">{err}</p>}
-            <div className="toolbar" style={{ justifyContent: "flex-end" }}>
-              <button className="btn ghost" onClick={() => setPanel(false)} disabled={!!busy}>
-                Cancel
-              </button>
-              <button className="btn primary" onClick={send} disabled={!!busy || configured === false || !recipients.trim()}>
-                {busy === "send" ? "Sending…" : "Send now"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {err && !panel && <p className="error">{err}</p>}
+      {err && <p className="error">{err}</p>}
     </div>
   );
 }
